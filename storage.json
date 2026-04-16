@@ -1,0 +1,282 @@
+{
+  "user_lqseqveqp": {
+    "trackers": [
+      {
+        "id": "tracker_1",
+        "name": "Water Intake",
+        "type": "numeric",
+        "mode": "numeric",
+        "logging_mode": "quantity",
+        "unit": "cups or glasses",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "id": "tracker_2",
+        "name": "Book Reading",
+        "type": "binary",
+        "mode": "binary",
+        "logging_mode": "simple",
+        "unit": "",
+        "goal": null,
+        "frequency": "daily",
+        "increments": []
+      },
+      {
+        "id": "tracker_3",
+        "name": "Sugar Avoidance",
+        "type": "binary",
+        "mode": "binary",
+        "logging_mode": "simple",
+        "unit": "",
+        "goal": null,
+        "frequency": "daily",
+        "increments": []
+      }
+    ],
+    "data": {
+      "tracker_1": {
+        "2026-04-05": {
+          "count": 2,
+          "logs": [
+            {
+              "kind": "numeric",
+              "value": 2,
+              "at": 1775393918351
+            }
+          ]
+        }
+      },
+      "tracker_2": {
+        "2026-04-05": {
+          "done": false,
+          "streak": 0,
+          "logs": []
+        }
+      },
+      "tracker_3": {
+        "2026-04-05": {
+          "done": true,
+          "streak": 1,
+          "logs": [
+            {
+              "kind": "binary",
+              "label": "done"
+            }
+          ]
+        }
+      }
+    },
+    "meta": {}
+  },
+  "user_vaanchhit": {
+    "trackers": [
+      {
+        "id": "1",
+        "name": "HP Book",
+        "type": "binary",
+        "mode": "binary",
+        "category": "study",
+        "fields": [
+          {
+            "name": "done",
+            "type": "boolean",
+            "unit": null
+          }
+        ],
+        "logging_mode": "simple",
+        "unit": "",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [],
+        "primary_action": "Read",
+        "optional_actions": [
+          "add note"
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Run",
+        "type": "session",
+        "mode": "session",
+        "category": "exercise",
+        "fields": [
+          {
+            "name": "duration",
+            "type": "time",
+            "unit": "minutes"
+          }
+        ],
+        "logging_mode": "time",
+        "unit": "",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [],
+        "primary_action": "Run",
+        "optional_actions": [
+          "manual duration"
+        ]
+      },
+      {
+        "id": "3",
+        "name": "Water",
+        "type": "numeric",
+        "mode": "numeric",
+        "category": "diet",
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "number",
+            "unit": "glasses"
+          }
+        ],
+        "logging_mode": "quantity",
+        "unit": "glasses",
+        "goal": 8,
+        "frequency": "daily",
+        "increments": [
+          1,
+          2,
+          3
+        ],
+        "primary_action": "Drink",
+        "optional_actions": [
+          "manual glasses"
+        ]
+      },
+      {
+        "id": "tracker_4",
+        "name": "Mood",
+        "type": "binary",
+        "mode": "binary",
+        "category": "habits",
+        "fields": [
+          {
+            "name": "done",
+            "type": "boolean",
+            "unit": null
+          }
+        ],
+        "logging_mode": "simple",
+        "unit": "",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [],
+        "primary_action": "Log",
+        "optional_actions": [
+          "add note"
+        ]
+      }
+    ],
+    "data": {
+      "tracker_4": {
+        "2026-04-05": {
+          "done": false,
+          "streak": 0,
+          "logs": []
+        }
+      }
+    },
+    "meta": {
+      "preferences": {
+        "density": "compact",
+        "theme": "system",
+        "animations": "minimal",
+        "daily_nudge": true,
+        "nudge_time": "",
+        "avatar": "dot"
+      }
+    }
+  },
+  "local_local_declo_app": {
+    "trackers": [
+      {
+        "id": "water-tracker-1",
+        "name": "Water",
+        "type": "numeric",
+        "mode": "numeric",
+        "category": "diet",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "number",
+            "unit": "ml"
+          }
+        ],
+        "logging_mode": "quantity",
+        "unit": "ml",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [
+          1
+        ],
+        "primary_action": "+1ml",
+        "optional_actions": [
+          "manual ml"
+        ]
+      },
+      {
+        "id": "running-tracker-1",
+        "name": "Running",
+        "type": "session",
+        "mode": "session",
+        "category": "exercise",
+        "fields": [
+          {
+            "name": "duration",
+            "type": "time",
+            "unit": "minutes"
+          }
+        ],
+        "logging_mode": "time",
+        "unit": "minutes",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [],
+        "primary_action": "start timer",
+        "optional_actions": [
+          "manual duration"
+        ]
+      },
+      {
+        "id": "read-hp-tracker-1",
+        "name": "Read Harry Potter",
+        "type": "numeric",
+        "mode": "numeric",
+        "category": "study",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "number",
+            "unit": "pages"
+          }
+        ],
+        "logging_mode": "quantity",
+        "unit": "pages",
+        "goal": null,
+        "frequency": "daily",
+        "increments": [
+          1
+        ],
+        "primary_action": "+1pages",
+        "optional_actions": [
+          "manual pages"
+        ]
+      }
+    ],
+    "data": {},
+    "meta": {
+      "preferences": {
+        "theme": "light",
+        "animations": "on",
+        "daily_nudge": false,
+        "nudge_time": ""
+      }
+    }
+  }
+}

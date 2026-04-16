@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Declo</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    const SUPABASE_URL = "https://uppcxdwmugfttsfmvkrx.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_VALID_SUPABASE_ANON_KEY_HERE";
+    const SUPABASE_CONFIGURED = Boolean(
+      SUPABASE_URL &&
+      SUPABASE_ANON_KEY &&
+      !SUPABASE_ANON_KEY.includes("YOUR_VALID_SUPABASE_ANON_KEY_HERE")
+    );
+    const supabase = SUPABASE_CONFIGURED
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    const STYLES = `
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background: linear-gradient(180deg, #f7f2e8 0%, #efe4d1 100%);
+        color: #1d2330;
+        font-family: Garamond, Baskerville, Georgia, serif;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(transparent 95%, rgba(104, 88, 67, 0.05) 95%) 0 0 / 100% 34px;
+        opacity: 0.34;
+      }
+      button, input, textarea, select { font: inherit; }
+
+      .app-shell {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 30px 22px 56px;
+      }
+      .auth-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .auth-card {
+        width: min(480px, 100%);
+        background: rgba(255, 251, 244, 0.86);
+        border-radius: 30px;
+        padding: 30px;
+        box-shadow: 0 24px 54px rgba(59, 42, 24, 0.08);
+        display: grid;
+        gap: 18px;
+      }
+      .auth-title {
+        font-size: 2rem;
+        letter-spacing: -0.03em;
+      }
+      .auth-copy {
+        color: #6a7180;
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+      .auth-form {
+        display: grid;
+        gap: 12px;
+      }
+      .auth-input {
+        width: 100%;
+        min-height: 58px;
+        padding: 14px 18px;
+        border: 0;
+        outline: none;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: inset 0 0 0 1px rgba(73, 55, 38, 0.08);
+        color: #1d2330;
+        font-size: 1.08rem;
+      }
+      .auth-input:focus {
+        box-shadow: inset 0 0 0 1px rgba(107, 82, 55, 0.2), 0 0 0 5px rgba(164, 139, 107, 0.12);
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+      .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .menu-btn {
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 251, 244, 0.84);
+        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.07);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .menu-lines {
+        display: grid;
+        gap: 4px;
+      }
+      .menu-lines span {
+        width: 16px;
+        height: 1.5px;
+        background: #4a5466;
+        border-radius: 999px;
+        display: block;
+      }
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .brand-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+      .brand-copy {
+        color: #6a7180;
+        font-size: 0.92rem;
+      }
+      .utility-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 2px;
+      }
+      .utility-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .composer-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 16px;
+        background: rgba(255, 251, 244, 0.88);
+        color: #1d2330;
+        box-shadow: 0 10px 22px rgba(59, 42, 24, 0.07);
+        cursor: pointer;
+      }
+      .utility-copy {
+        color: #6a7180;
+        font-size: 0.92rem;
+      }
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+      }
+      .icon-btn {
+        border: 0;
+        background: rgba(255, 251, 244, 0.84);
+        color: #536070;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.07);
+        cursor: pointer;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        display: grid;
+        place-items: center;
+        font-size: 0.9rem;
+        transform: scale(1);
+      }
+      .icon-btn:hover { transform: translateY(-1px); }
+      .icon-btn:active { transform: scale(0.97); }
+      .icon-btn:disabled {
+        opacity: 0.38;
+        cursor: default;
+        transform: none;
+      }
+      .tutorial-wrap {
+        position: relative;
+      }
+      .tutorial-btn {
+        position: relative;
+      }
+      .hover-note {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: rgba(51, 40, 30, 0.94);
+        color: #fff7ee;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-4px);
+        transition: opacity 0.14s ease, transform 0.14s ease;
+        white-space: nowrap;
+      }
+      .tutorial-wrap:hover .hover-note,
+      .tutorial-wrap:focus-within .hover-note {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .profile-wrap { position: relative; }
+      .profile-btn {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #a88a67, #7f6143);
+        color: #fffaf4;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 10px 22px rgba(92, 69, 47, 0.16);
+      }
+      .profile-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 10px);
+        min-width: 180px;
+        background: rgba(255, 251, 244, 0.96);
+        border-radius: 18px;
+        box-shadow: 0 18px 40px rgba(59, 42, 24, 0.12);
+        padding: 8px;
+        display: grid;
+        gap: 4px;
+        z-index: 20;
+      }
+      .profile-item {
+        border: 0;
+        background: transparent;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        color: #1d2330;
+      }
+      .profile-item:hover { background: #f5ecde; }
+      .profile-item.danger { color: #a14d4d; }
+      .profile-item.soft { color: #6a7180; }
+
+      .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(33, 25, 18, 0.16);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease;
+        z-index: 24;
+      }
+      .drawer-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: min(320px, calc(100vw - 32px));
+        height: 100vh;
+        background: rgba(247, 241, 230, 0.96);
+        box-shadow: 22px 0 44px rgba(59, 42, 24, 0.12);
+        padding: 24px 18px 28px;
+        transform: translateX(-102%);
+        transition: transform 0.2s ease;
+        z-index: 25;
+        overflow: auto;
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .drawer-title {
+        font-size: 1.2rem;
+      }
+      .drawer-close {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #715b46;
+        cursor: pointer;
+      }
+      .sidebar {
+        display: grid;
+        gap: 14px;
+      }
+      .side-card {
+        background: rgba(255, 251, 244, 0.78);
+        border-radius: 22px;
+        padding: 16px;
+        box-shadow: 0 10px 26px rgba(59, 42, 24, 0.06);
+      }
+      .side-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6f7888;
+        margin-bottom: 12px;
+      }
+      .snapshot {
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .snapshot-copy {
+        color: #6a7180;
+        font-size: 0.86rem;
+        margin-top: 6px;
+      }
+      .heatmap {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+      }
+      .heat-cell {
+        width: 100%;
+        aspect-ratio: 1;
+        border: 0;
+        border-radius: 5px;
+        background: #e8dfd1;
+        cursor: pointer;
+      }
+      .heat-cell.l1 { background: #d8ddc9; }
+      .heat-cell.l2 { background: #aeb79a; }
+      .heat-cell.l3 { background: #788166; }
+      .bars {
+        display: flex;
+        align-items: end;
+        gap: 8px;
+        height: 92px;
+      }
+      .bar-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .bar {
+        width: 100%;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #b89370 0%, #8c6848 100%);
+        min-height: 6px;
+      }
+      .bar-label {
+        font-size: 0.7rem;
+        color: #8b7764;
+      }
+      .tracker-list {
+        display: grid;
+        gap: 6px;
+      }
+      .tracker-link {
+        border: 0;
+        background: transparent;
+        text-align: left;
+        color: #667082;
+        padding: 6px 0;
+        cursor: pointer;
+      }
+      .tracker-link:hover { color: #1d2330; }
+
+      .main {
+        display: grid;
+        gap: 18px;
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .prompt-card {
+        background: rgba(255, 251, 244, 0.82);
+        border-radius: 28px;
+        padding: 18px;
+        box-shadow: 0 18px 40px rgba(59, 42, 24, 0.08);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      .prompt-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 20px 42px rgba(59, 42, 24, 0.09);
+      }
+      .prompt-input {
+        width: 100%;
+        min-height: 92px;
+        padding: 18px 20px;
+        border-radius: 22px;
+        border: 0;
+        outline: none;
+        resize: vertical;
+        background: rgba(255,255,255,0.92);
+        color: #1d2330;
+        font-size: 1rem;
+        line-height: 1.55;
+        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.05);
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .prompt-input:focus {
+        box-shadow:
+          inset 0 0 0 1px rgba(118, 94, 68, 0.18),
+          0 0 0 5px rgba(179, 158, 132, 0.14);
+        transform: scale(1.01);
+      }
+      .prompt-input::placeholder { color: #7a8290; }
+      .prompt-row {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .prompt-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .primary-btn,
+      .ghost-btn,
+      .tiny-btn {
+        border: 0;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .primary-btn {
+        padding: 11px 16px;
+        background: linear-gradient(135deg, #8a6a4b, #b28f69);
+        color: #fff8f2;
+        box-shadow: 0 12px 26px rgba(92, 69, 47, 0.16);
+        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+      }
+      .ghost-btn {
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.82);
+        color: #5d4a39;
+        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+      }
+      .ghost-btn.danger {
+        color: #a14d4d;
+      }
+      .tiny-btn {
+        padding: 8px 10px;
+        background: rgba(255,255,255,0.76);
+        color: #6a5b4d;
+        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+      }
+      .primary-btn:hover, .ghost-btn:hover, .tiny-btn:hover, .inc-btn:hover, .session-btn:hover, .menu-btn:hover, .profile-btn:hover, .drag-handle:hover, .delete-btn:hover {
+        filter: brightness(0.98);
+      }
+      .primary-btn:active, .ghost-btn:active, .tiny-btn:active, .inc-btn:active, .session-btn:active, .menu-btn:active, .profile-btn:active, .drag-handle:active, .delete-btn:active {
+        transform: scale(0.97);
+      }
+      .status {
+        color: #6a7180;
+        font-size: 0.88rem;
+      }
+      .manual-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .manual-input, .inline-input, .inline-select {
+        border: 0;
+        outline: none;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.95);
+        padding: 10px 12px;
+        color: #1d2330;
+        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.06);
+      }
+      .manual-input { min-width: 180px; flex: 1; }
+      .type-pill-row {
+        display: flex;
+        gap: 8px;
+      }
+      .type-pill {
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: 0;
+        background: rgba(255,255,255,0.86);
+        color: #6d5d4d;
+        cursor: pointer;
+      }
+      .type-pill.active {
+        background: rgba(138, 106, 75, 0.12);
+        color: #7b5e43;
+      }
+
+      .cards {
+        display: grid;
+        gap: 14px;
+      }
+      .card {
+        background: rgba(255, 251, 244, 0.84);
+        border-radius: 26px;
+        padding: 18px;
+        box-shadow: 0 14px 30px rgba(59, 42, 24, 0.08);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 34px rgba(59, 42, 24, 0.1);
+      }
+      .card.dragging {
+        opacity: 0.55;
+      }
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 16px;
+      }
+      .card-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .card-title {
+        font-size: 1.08rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        text-align: left;
+        color: #1d2330;
+        cursor: pointer;
+      }
+      .card-sub {
+        color: #6a7180;
+        font-size: 0.82rem;
+      }
+      .meta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(74, 84, 102, 0.08);
+        color: #516072;
+        font-size: 0.76rem;
+        text-transform: capitalize;
+      }
+      .card-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .drag-handle,
+      .delete-btn {
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.9);
+        color: #8b7764;
+        cursor: pointer;
+      }
+      .primary-zone {
+        display: grid;
+        gap: 12px;
+      }
+      .binary-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .binary-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 999px;
+        border: 2px solid #ddd1c2;
+        background: transparent;
+        color: #8b7764;
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      }
+      .binary-btn.done {
+        background: #7a8665;
+        border-color: #7a8665;
+        color: white;
+        transform: scale(1.05);
+      }
+      .metric {
+        font-size: 0.92rem;
+        color: #6a7180;
+      }
+      .metric strong { color: #1d2330; }
+      .numeric-line {
+        display: flex;
+        align-items: end;
+        gap: 8px;
+      }
+      .count {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+      .unit {
+        color: #8b7764;
+        margin-bottom: 4px;
+      }
+      .inc-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .inc-btn {
+        border: 0;
+        border-radius: 999px;
+        background: rgba(138, 106, 75, 0.12);
+        color: #7f6143;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: transform 0.16s ease, filter 0.16s ease;
+      }
+      .progress-track {
+        width: 100%;
+        height: 6px;
+        border-radius: 999px;
+        background: #e8dfd1;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #b69472, #876545);
+      }
+      .session-line {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .time {
+        font-size: 1.9rem;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+      .session-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 18px;
+        cursor: pointer;
+        background: #3f3328;
+        color: white;
+        transition: transform 0.16s ease, filter 0.16s ease;
+      }
+      .session-btn.running {
+        background: rgba(138, 106, 75, 0.14);
+        color: #7f6143;
+      }
+      .session-pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #8a6a4b;
+        animation: pulse 1.4s infinite;
+      }
+      @keyframes pulse {
+        0%,100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.45; transform: scale(0.75); }
+      }
+      .secondary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .link-btn {
+        border: 0;
+        background: transparent;
+        color: #6f7888;
+        padding: 0;
+        cursor: pointer;
+      }
+      .detail-row {
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+        padding-top: 10px;
+      }
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .detail-label {
+        display: grid;
+        gap: 6px;
+        color: #6f7888;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .detail-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+      .history-list {
+        display: grid;
+        gap: 8px;
+      }
+      .history-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.74);
+      }
+      .history-meta {
+        color: #6a7180;
+        font-size: 0.84rem;
+      }
+      .optional-input-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .micro-input {
+        min-width: 112px;
+        border: 0;
+        outline: none;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.92);
+        padding: 10px 12px;
+        color: #1d2330;
+        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.06);
+      }
+      .detail-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(33, 25, 18, 0.24);
+        display: grid;
+        place-items: center;
+        z-index: 30;
+      }
+      .modal {
+        width: min(420px, calc(100vw - 28px));
+        background: rgba(255, 251, 244, 0.96);
+        border-radius: 24px;
+        padding: 18px;
+        box-shadow: 0 20px 48px rgba(59, 42, 24, 0.18);
+        display: grid;
+        gap: 14px;
+      }
+      .preferences-modal {
+        width: min(560px, calc(100vw - 28px));
+      }
+      .section-stack {
+        display: grid;
+        gap: 16px;
+      }
+      .section-block {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .section-title {
+        font-size: 0.9rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6f7888;
+      }
+      .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .setting-copy {
+        display: grid;
+        gap: 4px;
+      }
+      .setting-label {
+        font-size: 1rem;
+      }
+      .setting-hint {
+        color: #6a7180;
+        font-size: 0.85rem;
+      }
+      .choice-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .choice-pill {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.84);
+        color: #5a6271;
+        cursor: pointer;
+        transition: transform 0.16s ease, filter 0.16s ease;
+      }
+      .choice-pill.active {
+        background: rgba(74, 84, 102, 0.1);
+        color: #1d2330;
+      }
+      .toggle-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        min-width: 60px;
+        background: rgba(255,255,255,0.84);
+        color: #1d2330;
+        cursor: pointer;
+      }
+      .toggle-btn.on {
+        background: rgba(122, 134, 101, 0.18);
+        color: #556144;
+      }
+      .preferences-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+      :root[data-theme="dark"] body {
+        background: linear-gradient(180deg, #23201d 0%, #171513 100%);
+        color: #e8e0d7;
+      }
+      :root[data-theme="dark"] .prompt-card,
+      :root[data-theme="dark"] .card,
+      :root[data-theme="dark"] .side-card,
+      :root[data-theme="dark"] .auth-card,
+      :root[data-theme="dark"] .modal,
+      :root[data-theme="dark"] .profile-menu,
+      :root[data-theme="dark"] .section-block {
+        background: rgba(36, 33, 30, 0.9);
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+      }
+      :root[data-theme="dark"] .prompt-input,
+      :root[data-theme="dark"] .manual-input,
+      :root[data-theme="dark"] .inline-input,
+      :root[data-theme="dark"] .inline-select,
+      :root[data-theme="dark"] .micro-input,
+      :root[data-theme="dark"] .auth-input,
+      :root[data-theme="dark"] .ghost-btn,
+      :root[data-theme="dark"] .choice-pill,
+      :root[data-theme="dark"] .toggle-btn,
+      :root[data-theme="dark"] .icon-btn,
+      :root[data-theme="dark"] .composer-btn,
+      :root[data-theme="dark"] .menu-btn {
+        background: rgba(49, 45, 41, 0.94);
+        color: #e8e0d7;
+      }
+      :root[data-theme="dark"] .metric strong,
+      :root[data-theme="dark"] .card-title,
+      :root[data-theme="dark"] .setting-label,
+      :root[data-theme="dark"] .brand-copy,
+      :root[data-theme="dark"] .status,
+      :root[data-theme="dark"] .utility-copy,
+      :root[data-theme="dark"] .setting-hint,
+      :root[data-theme="dark"] .card-sub,
+      :root[data-theme="dark"] .metric {
+        color: #cfc3b7;
+      }
+      :root[data-motion="minimal"] * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .modal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .modal-title {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      .logs {
+        display: grid;
+        gap: 8px;
+        max-height: 280px;
+        overflow: auto;
+      }
+      .tutorial-copy {
+        color: #675847;
+        line-height: 1.6;
+      }
+      .tutorial-list {
+        display: grid;
+        gap: 8px;
+        color: #4f4438;
+      }
+      .log-item {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: #f7eee2;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .empty-logs {
+        color: #6f7888;
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 900px) {
+        .app-shell { padding-inline: 16px; }
+      }
+      @media (max-width: 640px) {
+        .app-shell { padding: 18px 14px 40px; }
+        .detail-grid { grid-template-columns: 1fr 1fr; }
+        .auth-card { padding: 22px; }
+        .topbar { align-items: flex-start; }
+        .brand-title { font-size: 1.3rem; }
+      }
+    `;
+
+    function injectStyles(css) {
+      const style = document.createElement("style");
+      style.textContent = css;
+      document.head.appendChild(style);
+    }
+    injectStyles(STYLES);
+
+    function getUserId() {
+      return localStorage.getItem("tracker_user_id") || "";
+    }
+
+    function getProfileName() {
+      return localStorage.getItem("tracker_profile_name") || "";
+    }
+
+    function getProfileEmail() {
+      return localStorage.getItem("tracker_profile_email") || "";
+    }
+
+    function ensureLocalSession() {
+      if (getUserId()) return getUserId();
+      const name = getProfileName() || "Local User";
+      const email = getProfileEmail() || "local@declo.app";
+      const userId = `local_${slugifyName(email || name) || "workspace"}`;
+      localStorage.setItem("tracker_user_id", userId);
+      localStorage.setItem("tracker_profile_name", name);
+      localStorage.setItem("tracker_profile_email", email);
+      return userId;
+    }
+
+    function slugifyName(value) {
+      return value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 32);
+    }
+
+    async function buildHeaders(headers = {}) {
+      const userId = getUserId();
+      let token = "";
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        token = data?.session?.access_token || "";
+      }
+      return {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        ...(userId ? { "X-User-Id": userId } : {}),
+        ...headers,
+      };
+    }
+
+    async function apiFetch(url, options = {}) {
+      const headers = await buildHeaders(options.headers);
+      const res = await fetch(url, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `API Error: ${res.statusText}`);
+      return data;
+    }
+
+    function todayKey() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function uid() {
+      return `trk_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function formatDuration(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function formatShortDuration(seconds) {
+      const mins = Math.floor(seconds / 60);
+      if (mins < 60) return `${mins}m`;
+      const hrs = Math.floor(mins / 60);
+      const rem = mins % 60;
+      return rem ? `${hrs}h ${rem}m` : `${hrs}h`;
+    }
+
+    function inferCategory(raw) {
+      const explicit = (raw.category || "").toLowerCase();
+      if (["study", "diet", "exercise", "habits", "none"].includes(explicit)) return explicit;
+
+      const haystack = [
+        raw.name,
+        raw.unit,
+        raw.primary_action,
+        ...(raw.optional_actions || []),
+        ...((raw.fields || []).map((field) => field?.name)),
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      if (/(read|study|learn|book|course|pages)/.test(haystack)) return "study";
+      if (/(water|meal|calorie|protein|carb|diet|food|macro)/.test(haystack)) return "diet";
+      if (/(gym|workout|run|walk|exercise|lift|yoga|cycling)/.test(haystack)) return "exercise";
+      if (/(habit|meditat|journal|stretch|sleep|clean|pray)/.test(haystack)) return "habits";
+      return "none";
+    }
+
+    function normalizeFields(rawFields, type, unit) {
+      const cleaned = Array.isArray(rawFields)
+        ? rawFields
+          .filter((field) => field && typeof field === "object")
+          .map((field) => ({
+            name: String(field.name || "").trim(),
+            type: String(field.type || "").trim().toLowerCase(),
+            unit: field.unit ? String(field.unit).trim() : null,
+          }))
+          .filter((field) => field.name && ["number", "boolean", "time"].includes(field.type))
+          .slice(0, 4)
+        : [];
+
+      if (cleaned.length) return cleaned;
+      if (type === "binary") return [{ name: "done", type: "boolean", unit: null }];
+      if (type === "session") return [{ name: "duration", type: "time", unit: "minutes" }];
+      return [{ name: "amount", type: "number", unit: unit || null }];
+    }
+
+    function normalizeTracker(raw) {
+      const type = (raw.type || raw.mode || "binary").toLowerCase();
+      const resolvedType = ["binary", "numeric", "session"].includes(type) ? type : "binary";
+      const increments = Array.isArray(raw.increments) && raw.increments.length
+        ? raw.increments.filter((value) => Number(value) > 0).slice(0, 3).map(Number)
+        : (resolvedType === "numeric" ? [1] : []);
+      const unit = raw.unit || "";
+      const fields = normalizeFields(raw.fields, resolvedType, unit);
+      const primaryAction = raw.primary_action || (
+        resolvedType === "binary"
+          ? "check off"
+          : resolvedType === "session"
+            ? "start timer"
+            : `+${(increments[0] || (unit === "ml" ? 250 : 1))}${unit || ""}`
+      );
+      const optionalActions = Array.isArray(raw.optional_actions) && raw.optional_actions.length
+        ? raw.optional_actions.slice(0, 3).map(String)
+        : (
+          resolvedType === "numeric"
+            ? [unit ? `manual ${unit}` : "manual entry"]
+            : resolvedType === "session"
+              ? ["manual duration"]
+              : ["add note"]
+        );
+      return {
+        id: raw.id || uid(),
+        name: raw.name || "tracker",
+        type: resolvedType,
+        mode: resolvedType,
+        category: inferCategory(raw),
+        fields,
+        logging_mode: raw.logging_mode || (resolvedType === "binary" ? "simple" : resolvedType === "numeric" ? "quantity" : "time"),
+        unit,
+        goal: typeof raw.goal === "number" ? raw.goal : null,
+        frequency: raw.frequency === "weekly" ? "weekly" : "daily",
+        increments,
+        primary_action: primaryAction,
+        optional_actions: optionalActions,
+      };
+    }
+
+    async function parseTrackers(input, trackers, signal) {
+      const data = await apiFetch("/api/parse", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({ input, trackers }),
+      });
+      return (data.trackers || []).map(normalizeTracker);
+    }
+
+    async function loadState() {
+      try {
+        const state = await apiFetch("/api/state");
+        return {
+          trackers: (state.trackers || []).map(normalizeTracker),
+          data: state.data || {},
+          meta: state.meta || {},
+        };
+      } catch {
+        return { trackers: [], data: {}, meta: {} };
+      }
+    }
+
+    async function saveState(state) {
+      await apiFetch("/api/state", {
+        method: "POST",
+        body: JSON.stringify(state),
+      });
+    }
+
+    function ensureDayData(data, trackerId, dateKey) {
+      return data?.[trackerId]?.[dateKey] || {};
+    }
+
+    function computeBinaryStreak(trackerHistory, dateKey) {
+      let streak = 0;
+      const cursor = new Date(`${dateKey}T00:00:00`);
+      while (true) {
+        const key = cursor.toISOString().slice(0, 10);
+        if (!trackerHistory?.[key]?.done) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      return streak;
+    }
+
+    function activityValue(entry, tracker) {
+      if (!entry) return 0;
+      if (tracker.type === "binary") return entry.done ? 1 : 0;
+      if (tracker.type === "numeric") return entry.count || 0;
+      if (tracker.type === "session") {
+        const runningExtra = entry.running && entry.startedAt ? Math.floor((Date.now() - entry.startedAt) / 1000) : 0;
+        return Math.round(((entry.totalSeconds || 0) + runningExtra) / 60);
+      }
+      return 0;
+    }
+
+    function aggregateActivity(trackers, data) {
+      const totals = {};
+      trackers.forEach((tracker) => {
+        const trackerData = data[tracker.id] || {};
+        Object.entries(trackerData).forEach(([dateKey, entry]) => {
+          totals[dateKey] = (totals[dateKey] || 0) + activityValue(entry, tracker);
+        });
+      });
+      return totals;
+    }
+
+    function getLastNDates(days) {
+      return Array.from({ length: days }, (_, index) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (days - index - 1));
+        return d;
+      });
+    }
+
+    function getInitials(name) {
+      return (name || "U")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() || "")
+        .join("") || "U";
+    }
+
+    function getDefaultPreferences() {
+      return {
+        theme: "light",
+        animations: "on",
+        daily_nudge: false,
+        nudge_time: "",
+      };
+    }
+
+    function resolveTheme(theme) {
+      if (theme === "system") {
+        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      return theme === "dark" ? "dark" : "light";
+    }
+
+    function PromptCard({ input, setInput, onSubmit, loading, onManualToggle, manualOpen, statusText, inputRef }) {
+      return (
+        <section className="prompt-card">
+          <textarea
+            ref={inputRef}
+            className="prompt-input"
+            placeholder="What do you want to track?"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSubmit();
+              }
+            }}
+          />
+          <div className="prompt-row">
+            <div className="prompt-actions">
+              <button type="button" className="primary-btn" onClick={onSubmit} disabled={loading || !input.trim()}>
+                {loading ? "Thinking..." : "Create"}
+              </button>
+              <button type="button" className="ghost-btn" onClick={onManualToggle}>
+                {manualOpen ? "Close manual" : "Create manually"}
+              </button>
+            </div>
+            <div className="status">{statusText}</div>
+          </div>
+        </section>
+      );
+    }
+
+    function ManualCreate({ manual, setManual, onAdd }) {
+      return (
+        <div className="manual-row">
+          <input
+            className="manual-input"
+            placeholder="Tracker name"
+            value={manual.name}
+            onChange={(e) => setManual({ ...manual, name: e.target.value })}
+          />
+          <div className="type-pill-row">
+            {["binary", "numeric", "session"].map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`type-pill${manual.type === type ? " active" : ""}`}
+                onClick={() => setManual({ ...manual, type })}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="tiny-btn" onClick={onAdd}>Add</button>
+        </div>
+      );
+    }
+
+    function LoginScreen({
+      authMode,
+      setAuthMode,
+      authForm,
+      setAuthForm,
+      onAuth,
+      authLoading,
+      authError,
+    }) {
+      return (
+        <div className="auth-shell">
+          <section className="auth-card">
+            <div className="brand">
+              <div className="brand-title">Declo</div>
+              <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+            </div>
+            <div className="auth-title">{authMode === "signup" ? "Create your account." : "Welcome back."}</div>
+            <div className="auth-copy">
+              {authMode === "signup"
+                ? "A basic email and password is enough to start using Declo."
+                : "Log in to return to your workspace."}
+            </div>
+            <div className="choice-row">
+              {[
+                ["signup", "Sign up"],
+                ["login", "Log in"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`choice-pill${authMode === value ? " active" : ""}`}
+                  onClick={() => setAuthMode(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="auth-form">
+              {authMode === "signup" ? (
+                <input
+                  className="auth-input"
+                  placeholder="Name"
+                  value={authForm.name}
+                  onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                  autoFocus
+                />
+              ) : null}
+              <input
+                className="auth-input"
+                placeholder="Email"
+                type="email"
+                value={authForm.email}
+                onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+              />
+              <input
+                className="auth-input"
+                placeholder="Password"
+                type="password"
+                value={authForm.password}
+                onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    onAuth();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={onAuth}
+                disabled={
+                  authLoading ||
+                  !authForm.email.trim() ||
+                  !authForm.password.trim() ||
+                  (authMode === "signup" && !authForm.name.trim())
+                }
+              >
+                {authLoading ? "Working..." : authMode === "signup" ? "Create account" : "Log in"}
+              </button>
+              {authError ? <div className="status">{authError}</div> : null}
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    function PreferencesModal({ preferences, onUpdate, onClose, onExport, onDeleteAccount }) {
+      return (
+        <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal preferences-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">Preferences</div>
+              <button type="button" className="ghost-btn" onClick={onClose}>Close</button>
+            </div>
+            <div className="section-stack">
+              <section className="section-block">
+                <div className="section-title">Interface</div>
+                <div className="setting-row">
+                  <div className="setting-copy">
+                    <div className="setting-label">Theme</div>
+                    <div className="setting-hint">Light, dark, or follow your system.</div>
+                  </div>
+                  <div className="choice-row">
+                    {["light", "dark", "system"].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`choice-pill${preferences.theme === value ? " active" : ""}`}
+                        onClick={() => onUpdate({ theme: value })}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="setting-row">
+                  <div className="setting-copy">
+                    <div className="setting-label">Animations</div>
+                    <div className="setting-hint">Keep motion on or reduce it.</div>
+                  </div>
+                  <div className="choice-row">
+                    {["on", "minimal"].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`choice-pill${preferences.animations === value ? " active" : ""}`}
+                        onClick={() => onUpdate({ animations: value })}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="section-block">
+                <div className="section-title">Reminders</div>
+                <div className="setting-row">
+                  <div className="setting-copy">
+                    <div className="setting-label">Daily nudge</div>
+                    <div className="setting-hint">A soft reminder. No aggressive notifications.</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`toggle-btn${preferences.daily_nudge ? " on" : ""}`}
+                    onClick={() => onUpdate({ daily_nudge: !preferences.daily_nudge })}
+                  >
+                    {preferences.daily_nudge ? "On" : "Off"}
+                  </button>
+                </div>
+                <div className="setting-row">
+                  <div className="setting-copy">
+                    <div className="setting-label">Time</div>
+                    <div className="setting-hint">Optional reminder time.</div>
+                  </div>
+                  <input
+                    className="inline-input"
+                    type="time"
+                    value={preferences.nudge_time || ""}
+                    onChange={(e) => onUpdate({ nudge_time: e.target.value })}
+                  />
+                </div>
+              </section>
+
+              <section className="section-block">
+                <div className="section-title">Data</div>
+                <div className="preferences-actions">
+                  <button type="button" className="ghost-btn" onClick={onExport}>Export data</button>
+                  <button type="button" className="ghost-btn danger" onClick={onDeleteAccount}>Delete account</button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Sidebar({ trackers, data, onJumpToTracker, onOpenDay }) {
+      const today = todayKey();
+      const completed = trackers.reduce((acc, tracker) => {
+        const entry = ensureDayData(data, tracker.id, today);
+        if (tracker.type === "binary") return acc + (entry.done ? 1 : 0);
+        if (tracker.type === "numeric") {
+          if (tracker.goal) return acc + ((entry.count || 0) >= tracker.goal ? 1 : 0);
+          return acc + ((entry.count || 0) > 0 ? 1 : 0);
+        }
+        if (tracker.type === "session") return acc + (((entry.totalSeconds || 0) > 0 || entry.running) ? 1 : 0);
+        return acc;
+      }, 0);
+
+      const activity = aggregateActivity(trackers, data);
+      const dates = getLastNDates(84);
+      const maxActivity = Math.max(...Object.values(activity), 0);
+      const weekDates = getLastNDates(7);
+
+      return (
+        <aside className="sidebar">
+          <section className="side-card">
+            <div className="side-title">Today</div>
+            <div className="snapshot">{completed} / {trackers.length || 0}</div>
+            <div className="snapshot-copy">trackers completed</div>
+          </section>
+
+          <section className="side-card">
+            <div className="side-title">Daily progress</div>
+            <div className="heatmap">
+              {dates.map((date) => {
+                const key = date.toISOString().slice(0, 10);
+                const value = activity[key] || 0;
+                let level = "";
+                if (value > 0 && maxActivity > 0) {
+                  const ratio = value / maxActivity;
+                  level = ratio < 0.34 ? "l1" : ratio < 0.67 ? "l2" : "l3";
+                }
+                return (
+                  <button
+                    key={key}
+                    className={`heat-cell ${level}`}
+                    title={key}
+                    onClick={() => onOpenDay(key)}
+                  />
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="side-card">
+            <div className="side-title">Weekly momentum</div>
+            <div className="bars">
+              {weekDates.map((date) => {
+                const key = date.toISOString().slice(0, 10);
+                const value = activity[key] || 0;
+                const height = maxActivity > 0 ? Math.max((value / maxActivity) * 80, value > 0 ? 10 : 6) : 6;
+                return (
+                  <div className="bar-wrap" key={key}>
+                    <div className="bar" style={{ height: `${height}px` }} />
+                    <div className="bar-label">{date.toLocaleDateString("en-US", { weekday: "narrow" })}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="side-card">
+            <div className="side-title">Trackers</div>
+            <div className="tracker-list">
+              {trackers.map((tracker) => (
+                <button
+                  key={tracker.id}
+                  className="tracker-link"
+                  onClick={() => onJumpToTracker(tracker.id)}
+                >
+                  {tracker.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+      );
+    }
+
+    function BinaryCard({ tracker, entry, trackerHistory, onToggle }) {
+      const streak = computeBinaryStreak(trackerHistory, todayKey());
+      return (
+        <div className="primary-zone">
+          <div className="binary-row">
+            <button className={`binary-btn${entry.done ? " done" : ""}`} onClick={onToggle}>
+              {entry.done ? "✓" : ""}
+            </button>
+            <div className="metric">
+              <strong>{entry.done ? "Done today" : "Not yet"}</strong><br />
+              {tracker.frequency}{streak > 0 ? ` • ${streak} day streak` : ""}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function NumericCard({ tracker, entry, onAdd, onSubtract }) {
+      const count = entry.count || 0;
+      const goal = tracker.goal;
+      const ratio = goal ? Math.min(count / goal, 1) : 0;
+      return (
+        <div className="primary-zone">
+          <div className="numeric-line">
+            <div className="count">{count}</div>
+            {tracker.unit ? <div className="unit">{tracker.unit}</div> : null}
+          </div>
+          {goal ? (
+            <>
+              <div className="metric"><strong>{Math.max(goal - count, 0)}</strong> {tracker.unit || ""} to go</div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${ratio * 100}%` }} />
+              </div>
+            </>
+          ) : (
+            <div className="metric"><strong>{count}</strong> logged today</div>
+          )}
+          <div className="inc-row">
+            {(tracker.increments?.length ? tracker.increments : [1]).map((step) => (
+              <button key={step} className="inc-btn" onClick={() => onAdd(step)}>
+                +{step}{tracker.unit ? ` ${tracker.unit}` : ""}
+              </button>
+            ))}
+            {count > 0 ? <button className="tiny-btn" onClick={() => onSubtract(1)}>−1</button> : null}
+          </div>
+        </div>
+      );
+    }
+
+    function SessionCard({ entry, onToggle }) {
+      const [now, setNow] = useState(Date.now());
+      useEffect(() => {
+        if (!entry.running) return undefined;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+      }, [entry.running]);
+
+      const elapsed = entry.running && entry.startedAt ? Math.floor((now - entry.startedAt) / 1000) : 0;
+      const total = (entry.totalSeconds || 0) + elapsed;
+
+      return (
+        <div className="primary-zone">
+          <div className="session-line">
+            <div className="time">{formatDuration(total)}</div>
+            <button className={`session-btn${entry.running ? " running" : ""}`} onClick={onToggle}>
+              {entry.running ? "Stop" : "Start"}
+            </button>
+            {entry.running ? <div className="session-pulse" /> : null}
+          </div>
+          <div className="metric"><strong>{formatShortDuration(total)}</strong> today</div>
+        </div>
+      );
+    }
+
+    function TrackerCard({
+      tracker,
+      entry,
+      trackerHistory,
+      onDelete,
+      onRename,
+      onToggleBinary,
+      onAddNumeric,
+      onSubtractNumeric,
+      onToggleSession,
+      onAddSessionMinutes,
+      onToggleCustomize,
+      expanded,
+      onCustomize,
+      draggableProps,
+      innerRef,
+    }) {
+      const [editingName, setEditingName] = useState(false);
+      const [draftName, setDraftName] = useState(tracker.name);
+      const [manualValue, setManualValue] = useState("");
+
+      useEffect(() => setDraftName(tracker.name), [tracker.name]);
+
+      const recentLogs = (entry.logs || []).slice(-5).reverse();
+
+      const submitManual = () => {
+        const value = Number(manualValue);
+        if (!Number.isFinite(value) || value <= 0) return;
+        if (tracker.type === "numeric") onAddNumeric(value);
+        if (tracker.type === "session") onAddSessionMinutes(value);
+        setManualValue("");
+      };
+
+      return (
+        <article className={`card${draggableProps.dragging ? " dragging" : ""}`} ref={innerRef} draggable onDragStart={draggableProps.onDragStart} onDragOver={draggableProps.onDragOver} onDrop={draggableProps.onDrop}>
+          <div className="card-head">
+            <div className="card-title-wrap">
+              {editingName ? (
+                <input
+                  className="inline-input"
+                  value={draftName}
+                  autoFocus
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onBlur={() => {
+                    setEditingName(false);
+                    if (draftName.trim() && draftName.trim() !== tracker.name) onRename(draftName.trim());
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+              ) : (
+                <button className="card-title" onClick={() => setEditingName(true)}>{tracker.name}</button>
+              )}
+              <div className="meta-pill">{tracker.category}</div>
+              <div className="card-sub">{tracker.frequency} • {tracker.primary_action}</div>
+            </div>
+            <div className="card-actions">
+              <button className="drag-handle" title="Drag to reorder">⋮⋮</button>
+              <button className="delete-btn" onClick={onDelete} title="Remove">×</button>
+            </div>
+          </div>
+
+          {tracker.type === "binary" ? (
+            <BinaryCard tracker={tracker} entry={entry} trackerHistory={trackerHistory} onToggle={onToggleBinary} />
+          ) : null}
+          {tracker.type === "numeric" ? (
+            <NumericCard tracker={tracker} entry={entry} onAdd={onAddNumeric} onSubtract={onSubtractNumeric} />
+          ) : null}
+          {tracker.type === "session" ? (
+            <SessionCard entry={entry} onToggle={onToggleSession} />
+          ) : null}
+
+          <div className="secondary-row">
+            <button className="link-btn" onClick={onToggleCustomize}>
+              {expanded ? "▾ detail" : "▸ detail"}
+            </button>
+            <div className="metric">
+              {tracker.goal ? `goal ${tracker.goal}${tracker.unit ? ` ${tracker.unit}` : ""}` : tracker.logging_mode}
+            </div>
+          </div>
+
+          {expanded ? (
+            <div className="detail-row">
+              <div className="detail-grid">
+                <label className="detail-label">
+                  Category
+                  <select
+                    className="inline-select"
+                    value={tracker.category}
+                    onChange={(e) => onCustomize({ category: e.target.value })}
+                  >
+                    <option value="study">study</option>
+                    <option value="diet">diet</option>
+                    <option value="exercise">exercise</option>
+                    <option value="habits">habits</option>
+                    <option value="none">none</option>
+                  </select>
+                </label>
+                <label className="detail-label">
+                  Unit
+                  <input
+                    className="inline-input"
+                    value={tracker.unit || ""}
+                    onChange={(e) => onCustomize({ unit: e.target.value })}
+                    placeholder="none"
+                  />
+                </label>
+                <label className="detail-label">
+                  Logging
+                  <select
+                    className="inline-select"
+                    value={tracker.logging_mode}
+                    onChange={(e) => onCustomize({ logging_mode: e.target.value })}
+                  >
+                    <option value="simple">simple</option>
+                    <option value="quantity">quantity</option>
+                    <option value="time">time</option>
+                  </select>
+                </label>
+                <label className="detail-label">
+                  Frequency
+                  <select
+                    className="inline-select"
+                    value={tracker.frequency}
+                    onChange={(e) => onCustomize({ frequency: e.target.value })}
+                  >
+                    <option value="daily">daily</option>
+                    <option value="weekly">weekly</option>
+                  </select>
+                </label>
+                {tracker.type !== "binary" ? (
+                  <label className="detail-label">
+                    Goal
+                    <input
+                      className="inline-input"
+                      value={tracker.goal ?? ""}
+                      onChange={(e) => onCustomize({ goal: e.target.value === "" ? null : Number(e.target.value) })}
+                      type="number"
+                      min="0"
+                      placeholder="optional"
+                    />
+                  </label>
+                ) : null}
+              </div>
+              {tracker.type !== "binary" ? (
+                <div className="optional-input-row">
+                  <input
+                    className="micro-input"
+                    type="number"
+                    min="0"
+                    placeholder={tracker.type === "session" ? "minutes" : tracker.unit || "amount"}
+                    value={manualValue}
+                    onChange={(e) => setManualValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        submitManual();
+                      }
+                    }}
+                  />
+                  <button type="button" className="tiny-btn" onClick={submitManual}>
+                    {tracker.optional_actions[0] || "log"}
+                  </button>
+                </div>
+              ) : null}
+              <div className="history-list">
+                {recentLogs.length ? recentLogs.map((log, index) => {
+                  let text = "updated";
+                  if (log.kind === "binary") text = "checked off";
+                  if (log.kind === "numeric") text = `+${log.value}${tracker.unit ? ` ${tracker.unit}` : ""}`;
+                  if (log.kind === "session") text = formatShortDuration(log.seconds || 0);
+                  const timeLabel = log.at
+                    ? new Date(log.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                    : "today";
+                  return (
+                    <div className="history-item" key={`${tracker.id}_${index}_${timeLabel}`}>
+                      <span>{text}</span>
+                      <span className="history-meta">{timeLabel}</span>
+                    </div>
+                  );
+                }) : (
+                  <div className="history-item">
+                    <span>No logs yet</span>
+                    <span className="history-meta">list view</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      );
+    }
+
+    function LogsModal({ dayKey, logs, onClose }) {
+      return (
+        <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">{new Date(`${dayKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
+              <button className="ghost-btn" onClick={onClose}>Close</button>
+            </div>
+            <div className="logs">
+              {logs.length ? logs.map((log, index) => (
+                <div className="log-item" key={`${log.trackerId}_${index}`}>
+                  <span>{log.trackerName}</span>
+                  <span>{log.text}</span>
+                </div>
+              )) : <div className="empty-logs">No logs for this day.</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function TutorialModal({ onClose }) {
+      return (
+        <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">How it works</div>
+              <button type="button" className="ghost-btn" onClick={onClose}>Close</button>
+            </div>
+            <div className="tutorial-copy">
+              Type what you want to track in plain language. The app will create or update lightweight trackers without opening a setup flow.
+            </div>
+            <div className="tutorial-list">
+              <div>Use the prompt to create or change trackers.</div>
+              <div>Tap a card once to log progress.</div>
+              <div>Click a title to rename it or open “detail” for units, goals, and frequency.</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [input, setInput] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState("");
+      const [state, setState] = useState({ trackers: [], data: {}, meta: {} });
+      const [ready, setReady] = useState(false);
+      const [profileName, setProfileName] = useState(getProfileName());
+      const [profileEmail, setProfileEmail] = useState(getProfileEmail());
+      const [authMode, setAuthMode] = useState("signup");
+      const [authLoading, setAuthLoading] = useState(false);
+      const [authError, setAuthError] = useState("");
+      const [authForm, setAuthForm] = useState({
+        name: getProfileName(),
+        email: getProfileEmail(),
+        password: "",
+      });
+      const [manualOpen, setManualOpen] = useState(false);
+      const [manual, setManual] = useState({ name: "", type: "binary" });
+      const [expanded, setExpanded] = useState({});
+      const [undoState, setUndoState] = useState(null);
+      const [redoState, setRedoState] = useState(null);
+      const [profileOpen, setProfileOpen] = useState(false);
+      const [preferencesOpen, setPreferencesOpen] = useState(false);
+      const [dayModal, setDayModal] = useState(null);
+      const [draggingId, setDraggingId] = useState(null);
+      const [drawerOpen, setDrawerOpen] = useState(false);
+      const [composerOpen, setComposerOpen] = useState(false);
+      const inputRef = useRef(null);
+      const cardRefs = useRef({});
+      const parseControllerRef = useRef(null);
+
+      useEffect(() => {
+        if (!SUPABASE_CONFIGURED && !getUserId()) {
+          ensureLocalSession();
+          setProfileName(getProfileName());
+          setProfileEmail(getProfileEmail());
+        }
+      }, []);
+
+      useEffect(() => {
+        if (!getUserId()) {
+          setReady(false);
+          return undefined;
+        }
+        loadState().then((next) => {
+          const preferences = {
+            ...getDefaultPreferences(),
+            ...(next.meta?.preferences || {}),
+          };
+          setState({
+            ...next,
+            meta: {
+              ...next.meta,
+              preferences,
+            },
+          });
+          setReady(true);
+        });
+        return undefined;
+      }, [profileName]);
+
+      useEffect(() => {
+        const preferences = state.meta?.preferences || getDefaultPreferences();
+        document.documentElement.dataset.theme = resolveTheme(preferences.theme);
+        document.documentElement.dataset.motion = preferences.animations === "minimal" ? "minimal" : "on";
+      }, [state.meta]);
+
+      useEffect(() => {
+        const handler = (e) => {
+          const tag = document.activeElement?.tagName;
+          if (e.key === "+" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+            e.preventDefault();
+            inputRef.current?.focus();
+          }
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+      }, []);
+
+      const persist = async (next, undoLabel = "") => {
+        setUndoState({ previous: state, label: undoLabel });
+        setRedoState(null);
+        setState(next);
+        await saveState(next);
+      };
+
+      const updatePreferences = async (patch) => {
+        const current = state.meta?.preferences || getDefaultPreferences();
+        const next = {
+          ...state,
+          meta: {
+            ...state.meta,
+            preferences: {
+              ...current,
+              ...patch,
+            },
+          },
+        };
+        setState(next);
+        await saveState(next);
+      };
+
+      const handleAuth = async () => {
+        if (!SUPABASE_CONFIGURED || !supabase) {
+          ensureLocalSession();
+          setProfileName(getProfileName());
+          setProfileEmail(getProfileEmail());
+          setAuthForm((current) => ({ ...current, password: "" }));
+          setAuthError("");
+          return;
+        }
+        setAuthLoading(true);
+        setAuthError("");
+        try {
+          let data, error;
+          if (authMode === "signup") {
+            const res = await supabase.auth.signUp({
+              email: authForm.email,
+              password: authForm.password,
+              options: {
+                data: {
+                  name: authForm.name,
+                  full_name: authForm.name,
+                }
+              }
+            });
+            data = res.data;
+            error = res.error;
+          } else {
+            const res = await supabase.auth.signInWithPassword({
+              email: authForm.email,
+              password: authForm.password,
+            });
+            data = res.data;
+            error = res.error;
+          }
+
+          if (error) throw error;
+
+          const user = data?.user || {};
+          const session = data?.session;
+
+          if (authMode === "signup" && !session) {
+            setAuthError("Account created. Check your email to continue.");
+            setAuthMode("login");
+            setAuthForm((current) => ({ ...current, password: "" }));
+            return;
+          }
+
+          if (!user.id) {
+            throw new Error("Authentication completed, but no user id was returned.");
+          }
+
+          const metadata = user.user_metadata || {};
+          const name = metadata.name || metadata.full_name || authForm.name || authForm.email.split("@")[0];
+
+          localStorage.setItem("tracker_user_id", user.id);
+          localStorage.setItem("tracker_profile_name", name);
+          localStorage.setItem("tracker_profile_email", user.email);
+          setProfileName(name);
+          setProfileEmail(user.email);
+          setAuthForm((current) => ({ ...current, password: "" }));
+          setError("");
+        } catch (e) {
+          setAuthError(e.message || "Authentication failed.");
+        } finally {
+          setAuthLoading(false);
+        }
+      };
+
+      const today = todayKey();
+
+      const handleSubmit = async () => {
+        if (!input.trim() || loading) return;
+        const controller = new AbortController();
+        parseControllerRef.current = controller;
+        setLoading(true);
+        setError("");
+        try {
+          const trackers = await parseTrackers(input.trim(), state.trackers, controller.signal);
+          const currentData = state.data || {};
+          const trackerIds = new Set(trackers.map((tracker) => tracker.id));
+          const prunedData = Object.fromEntries(Object.entries(currentData).filter(([trackerId]) => trackerIds.has(trackerId)));
+          const next = { ...state, trackers, data: prunedData };
+          await persist(next, "Prompt applied");
+          setInput("");
+          setComposerOpen(false);
+          setManualOpen(false);
+        } catch (e) {
+          if (e.name === "AbortError") {
+            setError("Thinking stopped.");
+          } else {
+            setError(e.message || "Something went wrong. Try again.");
+          }
+        } finally {
+          parseControllerRef.current = null;
+          setLoading(false);
+        }
+      };
+
+      const addManualTracker = async () => {
+        const name = manual.name.trim();
+        if (!name) return;
+        const tracker = normalizeTracker({
+          id: uid(),
+          name,
+          type: manual.type,
+          logging_mode: manual.type === "binary" ? "simple" : manual.type === "numeric" ? "quantity" : "time",
+          unit: manual.type === "numeric" ? "" : null,
+          goal: null,
+          frequency: "daily",
+          increments: manual.type === "numeric" ? [1] : null,
+        });
+        const next = { ...state, trackers: [...state.trackers, tracker] };
+        await persist(next, "Manual tracker added");
+        setManual({ name: "", type: "binary" });
+        setManualOpen(false);
+        setComposerOpen(false);
+      };
+
+      const mutateTrackerData = async (trackerId, updater, undoLabel) => {
+        const prevEntry = ensureDayData(state.data, trackerId, today);
+        const trackerData = state.data[trackerId] || {};
+        const nextEntry = updater(prevEntry, trackerData);
+        const next = {
+          ...state,
+          data: {
+            ...state.data,
+            [trackerId]: {
+              ...trackerData,
+              [today]: nextEntry,
+            },
+          },
+        };
+        await persist(next, undoLabel);
+      };
+
+      const toggleBinary = (tracker) => mutateTrackerData(
+        tracker.id,
+        (prev, trackerHistory) => {
+          const done = !prev.done;
+          const next = { ...prev, done };
+          if (done) {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const streak = (trackerHistory[yesterday]?.done ? (trackerHistory[yesterday]?.streak || 0) : 0) + 1;
+            next.streak = streak;
+            next.logs = [...(prev.logs || []).filter((log) => log.kind !== "binary"), { kind: "binary", label: "done" }];
+          } else {
+            next.streak = 0;
+            next.logs = [];
+          }
+          return next;
+        },
+        `${tracker.name} toggled`
+      );
+
+      const addNumeric = (tracker, amount) => mutateTrackerData(
+        tracker.id,
+        (prev) => ({
+          ...prev,
+          count: (prev.count || 0) + amount,
+          logs: [...(prev.logs || []), { kind: "numeric", value: amount, at: Date.now() }],
+        }),
+        `${tracker.name} logged`
+      );
+
+      const subtractNumeric = (tracker, amount) => mutateTrackerData(
+        tracker.id,
+        (prev) => ({
+          ...prev,
+          count: Math.max(0, (prev.count || 0) - amount),
+          logs: (prev.logs || []).slice(0, -1),
+        }),
+        `${tracker.name} adjusted`
+      );
+
+      const toggleSession = (tracker) => mutateTrackerData(
+        tracker.id,
+        (prev) => {
+          if (prev.running && prev.startedAt) {
+            const elapsed = Math.floor((Date.now() - prev.startedAt) / 1000);
+            return {
+              ...prev,
+              running: false,
+              startedAt: null,
+              totalSeconds: (prev.totalSeconds || 0) + elapsed,
+              logs: [...(prev.logs || []), { kind: "session", seconds: elapsed, at: Date.now() }],
+            };
+          }
+          return { ...prev, running: true, startedAt: Date.now() };
+        },
+        `${tracker.name} session updated`
+      );
+
+      const addSessionMinutes = (tracker, minutes) => mutateTrackerData(
+        tracker.id,
+        (prev) => ({
+          ...prev,
+          totalSeconds: (prev.totalSeconds || 0) + Math.round(minutes * 60),
+          logs: [...(prev.logs || []), { kind: "session", seconds: Math.round(minutes * 60), at: Date.now() }],
+        }),
+        `${tracker.name} logged`
+      );
+
+      const removeTracker = async (trackerId) => {
+        const next = {
+          ...state,
+          trackers: state.trackers.filter((tracker) => tracker.id !== trackerId),
+          data: Object.fromEntries(Object.entries(state.data).filter(([id]) => id !== trackerId)),
+        };
+        await persist(next, "Tracker removed");
+      };
+
+      const renameTracker = async (trackerId, name) => {
+        const next = {
+          ...state,
+          trackers: state.trackers.map((tracker) => tracker.id === trackerId ? { ...tracker, name } : tracker),
+        };
+        await persist(next, "Tracker renamed");
+      };
+
+      const customizeTracker = async (trackerId, patch) => {
+        const next = {
+          ...state,
+          trackers: state.trackers.map((tracker) => tracker.id === trackerId ? normalizeTracker({ ...tracker, ...patch, id: tracker.id }) : tracker),
+        };
+        await persist(next, "Tracker updated");
+      };
+
+      const undoLast = async () => {
+        if (!undoState?.previous) return;
+        setRedoState({ next: state, label: undoState.label });
+        setUndoState(null);
+        setState(undoState.previous);
+        await saveState(undoState.previous);
+      };
+
+      const redoLast = async () => {
+        if (!redoState?.next) return;
+        setUndoState({ previous: state, label: redoState.label || "Redo" });
+        setState(redoState.next);
+        await saveState(redoState.next);
+        setRedoState(null);
+      };
+
+      const stopThinking = () => {
+        if (!parseControllerRef.current) return;
+        parseControllerRef.current.abort();
+      };
+
+      const resetData = async () => {
+        if (!confirm("Reset all tracker data?")) return;
+        const next = {
+          trackers: [],
+          data: {},
+          meta: {
+            ...state.meta,
+            preferences: state.meta?.preferences || getDefaultPreferences(),
+          },
+        };
+        setState(next);
+        await saveState(next);
+        setProfileOpen(false);
+      };
+
+      const logout = async () => {
+        if (supabase) {
+          await supabase.auth.signOut();
+        }
+        localStorage.removeItem("tracker_user_id");
+        localStorage.removeItem("tracker_profile_name");
+        localStorage.removeItem("tracker_profile_email");
+        setProfileName("");
+        setProfileEmail("");
+        setAuthForm((current) => ({ ...current, password: "" }));
+        setProfileOpen(false);
+        setDrawerOpen(false);
+        setPreferencesOpen(false);
+        setState({ trackers: [], data: {}, meta: {} });
+        setReady(false);
+      };
+
+      const exportData = () => {
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `declo-${profileName.toLowerCase().replace(/\s+/g, "-") || "workspace"}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        setProfileOpen(false);
+      };
+
+      const deleteAccount = async () => {
+        if (!confirm("Delete your Declo account and all saved data?")) return;
+        await apiFetch("/api/account", { method: "DELETE" });
+        localStorage.removeItem("tracker_user_id");
+        localStorage.removeItem("tracker_profile_name");
+        localStorage.removeItem("tracker_profile_email");
+        setPreferencesOpen(false);
+        setProfileOpen(false);
+        setProfileName("");
+        setProfileEmail("");
+        setAuthForm({ name: "", email: "", password: "" });
+        setState({ trackers: [], data: {}, meta: {} });
+        setReady(false);
+      };
+
+      const openTutorial = () => {
+        window.open("https://www.youtube.com/results?search_query=tracker+app+tutorial", "_blank", "noopener,noreferrer");
+      };
+
+      const jumpToTracker = (trackerId) => {
+        cardRefs.current[trackerId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setDrawerOpen(false);
+      };
+
+      const dayLogs = useMemo(() => {
+        if (!dayModal) return [];
+        return state.trackers.flatMap((tracker) => {
+          const entry = ensureDayData(state.data, tracker.id, dayModal);
+          const logs = entry.logs || [];
+          return logs.map((log) => {
+            if (log.kind === "binary") return { trackerId: tracker.id, trackerName: tracker.name, text: "checked off" };
+            if (log.kind === "numeric") return { trackerId: tracker.id, trackerName: tracker.name, text: `+${log.value}${tracker.unit ? ` ${tracker.unit}` : ""}` };
+            if (log.kind === "session") return { trackerId: tracker.id, trackerName: tracker.name, text: formatShortDuration(log.seconds) };
+            return null;
+          }).filter(Boolean);
+        });
+      }, [dayModal, state]);
+
+      const handleDrop = async (targetId) => {
+        if (!draggingId || draggingId === targetId) return;
+        const sourceIndex = state.trackers.findIndex((tracker) => tracker.id === draggingId);
+        const targetIndex = state.trackers.findIndex((tracker) => tracker.id === targetId);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+        const nextTrackers = [...state.trackers];
+        const [moved] = nextTrackers.splice(sourceIndex, 1);
+        nextTrackers.splice(targetIndex, 0, moved);
+        setDraggingId(null);
+        await persist({ ...state, trackers: nextTrackers }, "Trackers reordered");
+      };
+
+      if (!getUserId()) {
+        return (
+          <LoginScreen
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authForm={authForm}
+            setAuthForm={setAuthForm}
+            onAuth={handleAuth}
+            authLoading={authLoading}
+            authError={authError}
+          />
+        );
+      }
+
+      return (
+        <div className="app-shell">
+          <div className={`drawer-backdrop${drawerOpen ? " open" : ""}`} onClick={() => setDrawerOpen(false)} />
+          <aside className={`drawer${drawerOpen ? " open" : ""}`}>
+            <div className="drawer-head">
+              <div className="drawer-title">Overview</div>
+              <button type="button" className="drawer-close" onClick={() => setDrawerOpen(false)}>×</button>
+            </div>
+            <Sidebar
+              trackers={state.trackers}
+              data={state.data}
+              onJumpToTracker={jumpToTracker}
+              onOpenDay={(day) => {
+                setDayModal(day);
+                setDrawerOpen(false);
+              }}
+            />
+          </aside>
+
+          <div className="topbar">
+            <div className="topbar-left">
+              <button type="button" className="menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open sidebar">
+                <div className="menu-lines">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </button>
+              <div className="brand">
+                <div className="brand-title">Declo</div>
+                <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+              </div>
+            </div>
+
+            <div className="topbar-actions">
+              <div className="tutorial-wrap">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={undoLast}
+                  aria-label="Undo"
+                  title="Undo"
+                  disabled={!undoState?.previous}
+                >
+                  ↶
+                </button>
+              </div>
+              <div className="tutorial-wrap">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={redoLast}
+                  aria-label="Redo"
+                  title="Redo"
+                  disabled={!redoState?.next}
+                >
+                  ↷
+                </button>
+              </div>
+              <div className="tutorial-wrap">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={stopThinking}
+                  aria-label="Stop thinking"
+                  title="Stop thinking"
+                  disabled={!loading}
+                >
+                  ■
+                </button>
+                <div className="hover-note">stop thinking</div>
+              </div>
+              <div className="tutorial-wrap">
+                <button type="button" className="icon-btn tutorial-btn" onClick={openTutorial} aria-label="Open YouTube tutorial">
+                  ▶
+                </button>
+                <div className="hover-note">youtube tutorial</div>
+              </div>
+              <div className="profile-wrap">
+                <button type="button" className="profile-btn" onClick={() => setProfileOpen((open) => !open)}>
+                  {getInitials(profileName)}
+                </button>
+                {profileOpen ? (
+                  <div className="profile-menu">
+                    <button type="button" className="profile-item" onClick={() => { setPreferencesOpen(true); setProfileOpen(false); }}>Preferences</button>
+                    <button type="button" className="profile-item soft" onClick={exportData}>Export data</button>
+                    <button type="button" className="profile-item danger" onClick={deleteAccount}>Delete account</button>
+                    <button type="button" className="profile-item" onClick={logout}>Logout</button>
+                    <button type="button" className="profile-item danger" onClick={resetData}>Reset data</button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <main className="main">
+              {state.trackers.length > 0 ? (
+                <section className="utility-row">
+                  <div className="utility-actions">
+                    <button
+                      type="button"
+                      className="composer-btn"
+                      onClick={() => {
+                        setComposerOpen((open) => !open);
+                        setManualOpen(false);
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                    >
+                      {composerOpen ? "Close prompt" : "Prompt Declo"}
+                    </button>
+                  </div>
+                  <div className="utility-copy">{error || `Hi ${profileName}. Press + to focus the prompt any time.`}</div>
+                </section>
+              ) : null}
+
+              {state.trackers.length === 0 || composerOpen ? (
+                <PromptCard
+                  input={input}
+                  setInput={setInput}
+                  onSubmit={handleSubmit}
+                  loading={loading}
+                  onManualToggle={() => {
+                    setComposerOpen(true);
+                    setManualOpen((open) => !open);
+                  }}
+                  manualOpen={manualOpen}
+                  statusText={error || (state.trackers.length === 0
+                    ? "Set up your workspace in one prompt."
+                    : "Update what Declo tracks without opening settings.")}
+                  inputRef={inputRef}
+                />
+              ) : null}
+
+              {manualOpen ? (
+                <section className="prompt-card">
+                  <ManualCreate manual={manual} setManual={setManual} onAdd={addManualTracker} />
+                </section>
+              ) : null}
+
+              <section className="cards">
+                {ready && state.trackers.length === 0 ? (
+                  <div className="card">
+                    <div className="metric"><strong>start by typing what you want to track</strong></div>
+                  </div>
+                ) : null}
+
+                {state.trackers.map((tracker) => {
+                  const entry = ensureDayData(state.data, tracker.id, today);
+                  return (
+                    <TrackerCard
+                      key={tracker.id}
+                      tracker={tracker}
+                      entry={entry}
+                      trackerHistory={state.data[tracker.id] || {}}
+                      onDelete={() => removeTracker(tracker.id)}
+                      onRename={(name) => renameTracker(tracker.id, name)}
+                      onToggleBinary={() => toggleBinary(tracker)}
+                      onAddNumeric={(amount) => addNumeric(tracker, amount)}
+                      onSubtractNumeric={(amount) => subtractNumeric(tracker, amount)}
+                      onToggleSession={() => toggleSession(tracker)}
+                      onAddSessionMinutes={(minutes) => addSessionMinutes(tracker, minutes)}
+                      onToggleCustomize={() => setExpanded((prev) => ({ ...prev, [tracker.id]: !prev[tracker.id] }))}
+                      expanded={Boolean(expanded[tracker.id])}
+                      onCustomize={(patch) => customizeTracker(tracker.id, patch)}
+                      draggableProps={{
+                        dragging: draggingId === tracker.id,
+                        onDragStart: () => setDraggingId(tracker.id),
+                        onDragOver: (e) => e.preventDefault(),
+                        onDrop: () => handleDrop(tracker.id),
+                      }}
+                      innerRef={(node) => { cardRefs.current[tracker.id] = node; }}
+                    />
+                  );
+                })}
+              </section>
+          </main>
+
+          {dayModal ? <LogsModal dayKey={dayModal} logs={dayLogs} onClose={() => setDayModal(null)} /> : null}
+          {preferencesOpen ? (
+            <PreferencesModal
+              preferences={state.meta?.preferences || getDefaultPreferences()}
+              onUpdate={updatePreferences}
+              onClose={() => setPreferencesOpen(false)}
+              onExport={exportData}
+              onDeleteAccount={deleteAccount}
+            />
+          ) : null}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
