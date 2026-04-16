@@ -74,7 +74,7 @@ def get_gemini_api_key():
 
 
 def get_gemini_model():
-    return env_or_empty("GEMINI_MODEL") or "gemini-2.5-flash"
+    return env_or_empty("GEMINI_MODEL") or "gemini-1.5-flash"
 
 
 def get_public_config():
@@ -100,4 +100,3 @@ def parse_json_bytes(raw_bytes):
         return json.loads(raw_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ApiError("Request body must be valid JSON.", status=400, code="INVALID_JSON") from exc
-
