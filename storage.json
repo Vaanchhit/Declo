@@ -200,76 +200,43 @@
         "name": "Water",
         "type": "numeric",
         "mode": "numeric",
-        "category": "diet",
+        "category": "habits",
         "fields": [
           {
             "name": "amount",
             "type": "number",
-            "unit": "ml"
+            "unit": "glasses"
           }
         ],
         "logging_mode": "quantity",
-        "unit": "ml",
-        "goal": null,
+        "unit": "glasses",
+        "goal": 8,
         "frequency": "daily",
         "increments": [
-          1
+          1,
+          2,
+          4
         ],
-        "primary_action": "+1ml",
+        "primary_action": "Drink",
         "optional_actions": [
-          "manual ml"
-        ]
-      },
-      {
-        "id": "running-tracker-1",
-        "name": "Running",
-        "type": "session",
-        "mode": "session",
-        "category": "exercise",
-        "fields": [
-          {
-            "name": "duration",
-            "type": "time",
-            "unit": "minutes"
-          }
-        ],
-        "logging_mode": "time",
-        "unit": "minutes",
-        "goal": null,
-        "frequency": "daily",
-        "increments": [],
-        "primary_action": "start timer",
-        "optional_actions": [
-          "manual duration"
-        ]
-      },
-      {
-        "id": "read-hp-tracker-1",
-        "name": "Read Harry Potter",
-        "type": "numeric",
-        "mode": "numeric",
-        "category": "study",
-        "fields": [
-          {
-            "name": "amount",
-            "type": "number",
-            "unit": "pages"
-          }
-        ],
-        "logging_mode": "quantity",
-        "unit": "pages",
-        "goal": null,
-        "frequency": "daily",
-        "increments": [
-          1
-        ],
-        "primary_action": "+1pages",
-        "optional_actions": [
-          "manual pages"
+          "Refill bottle"
         ]
       }
     ],
-    "data": {},
+    "data": {
+      "water-tracker-1": {
+        "2026-04-16": {
+          "count": 6,
+          "logs": [
+            {
+              "kind": "numeric",
+              "value": 4,
+              "at": 1776369563077
+            }
+          ]
+        }
+      }
+    },
     "meta": {
       "preferences": {
         "theme": "light",
