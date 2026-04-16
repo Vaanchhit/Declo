@@ -16,16 +16,12 @@
   <script type="text/babel">
     const { useEffect, useMemo, useRef, useState } = React;
 
-    const SUPABASE_URL = "https://uppcxdwmugfttsfmvkrx.supabase.co";
-    const SUPABASE_ANON_KEY = "YOUR_VALID_SUPABASE_ANON_KEY_HERE";
-    const SUPABASE_CONFIGURED = Boolean(
-      SUPABASE_URL &&
-      SUPABASE_ANON_KEY &&
-      !SUPABASE_ANON_KEY.includes("YOUR_VALID_SUPABASE_ANON_KEY_HERE")
-    );
-    const supabase = SUPABASE_CONFIGURED
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
+    const runtimeConfig = {
+      supabaseUrl: "",
+      supabaseAnonKey: "",
+      configured: false,
+    };
+    let supabaseClient = null;
 
     const STYLES = `
       *, *::before, *::after { box-sizing: border-box; }
@@ -973,15 +969,19 @@
       return localStorage.getItem("tracker_profile_email") || "";
     }
 
-    function ensureLocalSession() {
-      if (getUserId()) return getUserId();
-      const name = getProfileName() || "Local User";
-      const email = getProfileEmail() || "local@declo.app";
-      const userId = `local_${slugifyName(email || name) || "workspace"}`;
-      localStorage.setItem("tracker_user_id", userId);
-      localStorage.setItem("tracker_profile_name", name);
-      localStorage.setItem("tracker_profile_email", email);
-      return userId;
+    function cacheSessionUser(user) {
+      const metadata = user?.user_metadata || {};
+      const fallbackEmail = user?.email || "";
+      const fallbackName = metadata.name || metadata.full_name || (fallbackEmail ? fallbackEmail.split("@")[0] : "Declo");
+      localStorage.setItem("tracker_user_id", user?.id || "");
+      localStorage.setItem("tracker_profile_name", fallbackName);
+      localStorage.setItem("tracker_profile_email", fallbackEmail);
+    }
+
+    function clearCachedUser() {
+      localStorage.removeItem("tracker_user_id");
+      localStorage.removeItem("tracker_profile_name");
+      localStorage.removeItem("tracker_profile_email");
     }
 
     function slugifyName(value) {
@@ -994,16 +994,12 @@
     }
 
     async function buildHeaders(headers = {}) {
-      const userId = getUserId();
-      let token = "";
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        token = data?.session?.access_token || "";
-      }
+      if (!supabaseClient) throw new Error("Supabase client is not ready.");
+      const { data } = await supabaseClient.auth.getSession();
+      const token = data?.session?.access_token || "";
       return {
         "Content-Type": "application/json",
         ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-        ...(userId ? { "X-User-Id": userId } : {}),
         ...headers,
       };
     }
@@ -1012,8 +1008,30 @@
       const headers = await buildHeaders(options.headers);
       const res = await fetch(url, { ...options, headers });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `API Error: ${res.statusText}`);
+      if (!res.ok) {
+        const message = data?.error?.message || data?.error || `API Error: ${res.statusText}`;
+        throw new Error(message);
+      }
       return data;
+    }
+
+    async function loadRuntimeConfig() {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error?.message || data?.error || "Unable to load runtime configuration.");
+      }
+      if (!data.supabaseUrl || !data.supabaseAnonKey) {
+        throw new Error("Supabase environment variables are not configured on the server.");
+      }
+      runtimeConfig.supabaseUrl = data.supabaseUrl;
+      runtimeConfig.supabaseAnonKey = data.supabaseAnonKey;
+      runtimeConfig.configured = true;
+      const supabaseSdk = window.supabase || globalThis.supabase;
+      if (!supabaseSdk || typeof supabaseSdk.createClient !== "function") {
+        throw new Error("Supabase browser SDK failed to load from the CDN.");
+      }
+      supabaseClient = supabaseSdk.createClient(runtimeConfig.supabaseUrl, runtimeConfig.supabaseAnonKey);
     }
 
     function todayKey() {
@@ -1445,7 +1463,7 @@
                 <div className="section-title">Data</div>
                 <div className="preferences-actions">
                   <button type="button" className="ghost-btn" onClick={onExport}>Export data</button>
-                  <button type="button" className="ghost-btn danger" onClick={onDeleteAccount}>Delete account</button>
+                  <button type="button" className="ghost-btn danger" onClick={onDeleteAccount}>Delete cloud data</button>
                 </div>
               </section>
             </div>
@@ -1851,12 +1869,29 @@
       );
     }
 
-    function App() {
+    function BootScreen({ title, copy }) {
+      return (
+        <div className="auth-shell">
+          <section className="auth-card">
+            <div className="brand">
+              <div className="brand-title">Declo</div>
+              <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+            </div>
+            <div className="auth-title">{title}</div>
+            <div className="auth-copy">{copy}</div>
+          </section>
+        </div>
+      );
+    }
+
+    function App({ bootError = "" }) {
       const [input, setInput] = useState("");
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState("");
       const [state, setState] = useState({ trackers: [], data: {}, meta: {} });
       const [ready, setReady] = useState(false);
+      const [authReady, setAuthReady] = useState(false);
+      const [currentUserId, setCurrentUserId] = useState(getUserId());
       const [profileName, setProfileName] = useState(getProfileName());
       const [profileEmail, setProfileEmail] = useState(getProfileEmail());
       const [authMode, setAuthMode] = useState("signup");
@@ -1883,15 +1918,52 @@
       const parseControllerRef = useRef(null);
 
       useEffect(() => {
-        if (!SUPABASE_CONFIGURED && !getUserId()) {
-          ensureLocalSession();
-          setProfileName(getProfileName());
-          setProfileEmail(getProfileEmail());
+        if (bootError) {
+          setAuthReady(true);
+          return undefined;
         }
-      }, []);
+
+        let active = true;
+
+        const applySession = (session) => {
+          if (!active) return;
+          const user = session?.user || null;
+          if (user) {
+            cacheSessionUser(user);
+            setCurrentUserId(user.id);
+            setProfileName(getProfileName());
+            setProfileEmail(getProfileEmail());
+          } else {
+            clearCachedUser();
+            setCurrentUserId("");
+            setProfileName("");
+            setProfileEmail("");
+            setState({ trackers: [], data: {}, meta: {} });
+            setReady(false);
+          }
+          setAuthReady(true);
+        };
+
+        supabaseClient.auth.getSession()
+          .then(({ data }) => applySession(data?.session || null))
+          .catch(() => {
+            if (!active) return;
+            setAuthReady(true);
+            setAuthError("Unable to restore your session.");
+          });
+
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+          applySession(session);
+        });
+
+        return () => {
+          active = false;
+          subscription.unsubscribe();
+        };
+      }, [bootError]);
 
       useEffect(() => {
-        if (!getUserId()) {
+        if (!authReady || !currentUserId) {
           setReady(false);
           return undefined;
         }
@@ -1910,7 +1982,7 @@
           setReady(true);
         });
         return undefined;
-      }, [profileName]);
+      }, [authReady, currentUserId]);
 
       useEffect(() => {
         const preferences = state.meta?.preferences || getDefaultPreferences();
@@ -1954,20 +2026,12 @@
       };
 
       const handleAuth = async () => {
-        if (!SUPABASE_CONFIGURED || !supabase) {
-          ensureLocalSession();
-          setProfileName(getProfileName());
-          setProfileEmail(getProfileEmail());
-          setAuthForm((current) => ({ ...current, password: "" }));
-          setAuthError("");
-          return;
-        }
         setAuthLoading(true);
         setAuthError("");
         try {
           let data, error;
           if (authMode === "signup") {
-            const res = await supabase.auth.signUp({
+            const res = await supabaseClient.auth.signUp({
               email: authForm.email,
               password: authForm.password,
               options: {
@@ -1980,7 +2044,7 @@
             data = res.data;
             error = res.error;
           } else {
-            const res = await supabase.auth.signInWithPassword({
+            const res = await supabaseClient.auth.signInWithPassword({
               email: authForm.email,
               password: authForm.password,
             });
@@ -2007,9 +2071,8 @@
           const metadata = user.user_metadata || {};
           const name = metadata.name || metadata.full_name || authForm.name || authForm.email.split("@")[0];
 
-          localStorage.setItem("tracker_user_id", user.id);
-          localStorage.setItem("tracker_profile_name", name);
-          localStorage.setItem("tracker_profile_email", user.email);
+          cacheSessionUser({ ...user, user_metadata: { ...metadata, name } });
+          setCurrentUserId(user.id);
           setProfileName(name);
           setProfileEmail(user.email);
           setAuthForm((current) => ({ ...current, password: "" }));
@@ -2217,12 +2280,11 @@
       };
 
       const logout = async () => {
-        if (supabase) {
-          await supabase.auth.signOut();
+        if (supabaseClient) {
+          await supabaseClient.auth.signOut();
         }
-        localStorage.removeItem("tracker_user_id");
-        localStorage.removeItem("tracker_profile_name");
-        localStorage.removeItem("tracker_profile_email");
+        clearCachedUser();
+        setCurrentUserId("");
         setProfileName("");
         setProfileEmail("");
         setAuthForm((current) => ({ ...current, password: "" }));
@@ -2247,11 +2309,13 @@
       };
 
       const deleteAccount = async () => {
-        if (!confirm("Delete your Declo account and all saved data?")) return;
+        if (!confirm("Delete your saved Declo cloud data? Your login will remain available.")) return;
         await apiFetch("/api/account", { method: "DELETE" });
-        localStorage.removeItem("tracker_user_id");
-        localStorage.removeItem("tracker_profile_name");
-        localStorage.removeItem("tracker_profile_email");
+        if (supabaseClient) {
+          await supabaseClient.auth.signOut();
+        }
+        clearCachedUser();
+        setCurrentUserId("");
         setPreferencesOpen(false);
         setProfileOpen(false);
         setProfileName("");
@@ -2296,7 +2360,15 @@
         await persist({ ...state, trackers: nextTrackers }, "Trackers reordered");
       };
 
-      if (!getUserId()) {
+      if (bootError) {
+        return <BootScreen title="Configuration needed." copy={bootError} />;
+      }
+
+      if (!authReady) {
+        return <BootScreen title="Loading Declo." copy="Connecting to Supabase and restoring your session." />;
+      }
+
+      if (!currentUserId) {
         return (
           <LoginScreen
             authMode={authMode}
@@ -2396,7 +2468,7 @@
                   <div className="profile-menu">
                     <button type="button" className="profile-item" onClick={() => { setPreferencesOpen(true); setProfileOpen(false); }}>Preferences</button>
                     <button type="button" className="profile-item soft" onClick={exportData}>Export data</button>
-                    <button type="button" className="profile-item danger" onClick={deleteAccount}>Delete account</button>
+                    <button type="button" className="profile-item danger" onClick={deleteAccount}>Delete cloud data</button>
                     <button type="button" className="profile-item" onClick={logout}>Logout</button>
                     <button type="button" className="profile-item danger" onClick={resetData}>Reset data</button>
                   </div>
@@ -2501,8 +2573,18 @@
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App />);
+    async function bootstrap() {
+      let bootError = "";
+      try {
+        await loadRuntimeConfig();
+      } catch (error) {
+        bootError = error.message || "Unable to initialize Declo.";
+      }
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App bootError={bootError} />);
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>
