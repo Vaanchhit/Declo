@@ -73,8 +73,12 @@ def get_gemini_api_key():
     return require_env("GEMINI_API_KEY", "GOOGLE_API_KEY")
 
 
-def get_gemini_model():
-    return env_or_empty("GEMINI_MODEL") or "gemini-1.5-flash"
+def get_gemini_primary_model():
+    return env_or_empty("GEMINI_PRIMARY_MODEL", "GEMINI_MODEL") or "gemini-2.5-flash"
+
+
+def get_gemini_fallback_model():
+    return env_or_empty("GEMINI_FALLBACK_MODEL") or "gemini-1.5-pro-latest"
 
 
 def get_public_config():

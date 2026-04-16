@@ -2,7 +2,13 @@ import json
 import ssl
 from urllib import error as urllib_error, request as urllib_request
 
-from .runtime import ApiError, build_ssl_context, get_gemini_api_key, get_gemini_model
+from .runtime import (
+    ApiError,
+    build_ssl_context,
+    get_gemini_api_key,
+    get_gemini_fallback_model,
+    get_gemini_primary_model,
+)
 
 
 def build_parse_prompt(user_input, current_trackers):
@@ -118,10 +124,7 @@ def extract_candidate_text(response_payload):
     return text
 
 
-def parse_trackers_with_gemini(user_input, current_trackers):
-    if not user_input.strip():
-        raise ApiError("Missing prompt input.", status=400, code="PROMPT_REQUIRED")
-
+def build_payload(user_input, current_trackers):
     payload = {
         "contents": [
             {
@@ -141,9 +144,12 @@ def parse_trackers_with_gemini(user_input, current_trackers):
             "responseJsonSchema": build_response_schema(),
         },
     }
+    return payload
 
+
+def request_gemini(payload, model_name):
     req = urllib_request.Request(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{get_gemini_model()}:generateContent",
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
@@ -158,21 +164,21 @@ def parse_trackers_with_gemini(user_input, current_trackers):
     except urllib_error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")
         raise ApiError(
-            f"Gemini API error ({exc.code}): {details or exc.reason}",
+            f"Gemini API error from {model_name} ({exc.code}): {details or exc.reason}",
             status=502,
             code="AI_UPSTREAM_ERROR",
             retryable=exc.code >= 500,
         ) from exc
     except ssl.SSLCertVerificationError as exc:
         raise ApiError(
-            "TLS certificate verification failed while connecting to Gemini.",
+            f"TLS certificate verification failed while connecting to Gemini model {model_name}.",
             status=502,
             code="TLS_ERROR",
             retryable=True,
         ) from exc
     except urllib_error.URLError as exc:
         raise ApiError(
-            f"Gemini request failed: {exc.reason}",
+            f"Gemini request failed for {model_name}: {exc.reason}",
             status=502,
             code="AI_NETWORK_ERROR",
             retryable=True,
@@ -182,9 +188,46 @@ def parse_trackers_with_gemini(user_input, current_trackers):
     try:
         trackers = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ApiError("Gemini did not return valid JSON.", status=502, code="AI_INVALID_JSON", retryable=True) from exc
+        raise ApiError(
+            f"Gemini model {model_name} did not return valid JSON.",
+            status=502,
+            code="AI_INVALID_JSON",
+            retryable=True,
+        ) from exc
 
     if not isinstance(trackers, list):
-        raise ApiError("Gemini response was not a JSON array.", status=502, code="AI_INVALID_SHAPE", retryable=True)
+        raise ApiError(
+            f"Gemini model {model_name} did not return a JSON array.",
+            status=502,
+            code="AI_INVALID_SHAPE",
+            retryable=True,
+        )
 
     return [tracker for tracker in trackers if isinstance(tracker, dict)]
+
+
+def parse_trackers_with_gemini(user_input, current_trackers):
+    if not user_input.strip():
+        raise ApiError("Missing prompt input.", status=400, code="PROMPT_REQUIRED")
+
+    payload = build_payload(user_input, current_trackers)
+    primary_model = get_gemini_primary_model()
+    fallback_model = get_gemini_fallback_model()
+
+    try:
+        trackers = request_gemini(payload, primary_model)
+        return {
+            "trackers": trackers,
+            "model": primary_model,
+            "fallback_used": False,
+        }
+    except ApiError as exc:
+        if not exc.retryable or not fallback_model or fallback_model == primary_model:
+            raise
+
+    trackers = request_gemini(payload, fallback_model)
+    return {
+        "trackers": trackers,
+        "model": fallback_model,
+        "fallback_used": True,
+    }

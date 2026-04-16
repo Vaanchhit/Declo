@@ -60,13 +60,14 @@ def parse_route():
     current_trackers = body.get("trackers") if isinstance(body.get("trackers"), list) else None
     if current_trackers is None:
         current_trackers = get_workspace_state(token, user["id"]).get("trackers", [])
-    trackers = parse_trackers_with_gemini(body.get("input", ""), current_trackers)
+    parsed = parse_trackers_with_gemini(body.get("input", ""), current_trackers)
     return jsonify(
         {
-            "trackers": trackers,
+            "trackers": parsed["trackers"],
             "meta": {
                 "source": "gemini",
-                "model": "server-configured",
+                "model": parsed["model"],
+                "fallback_used": parsed["fallback_used"],
             },
         }
     )

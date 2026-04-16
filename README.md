@@ -14,7 +14,8 @@ Set these in Vercel Project Settings and locally in `.env.local`:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `GEMINI_API_KEY`
-- `GEMINI_MODEL` optional, defaults to `gemini-1.5-flash`
+- `GEMINI_PRIMARY_MODEL` optional, defaults to `gemini-2.5-flash`
+- `GEMINI_FALLBACK_MODEL` optional, defaults to `gemini-1.5-pro-latest`
 
 Use `.env.example` as the starting template.
 
