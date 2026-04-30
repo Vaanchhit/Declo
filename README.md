@@ -1,50 +1,76 @@
 # Declo
 
-Declo is a single-page tracker app deployed on Vercel with:
+Build your own tracking system — from a single prompt.
 
-- static frontend in `index.html`
-- Python serverless functions in `api/`
-- Supabase for auth and persisted user state
-- Gemini for prompt-to-tracker parsing
+---
 
-## Environment Variables
+## What is Declo?
 
-Set these in Vercel Project Settings and locally in `.env.local`:
+Most habit trackers force you into pre-built templates.
 
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `GEMINI_API_KEY`
-- `GEMINI_PRIMARY_MODEL` optional, defaults to `gemini-2.5-flash`
-- `GEMINI_FALLBACK_MODEL` optional, defaults to `gemini-1.5-pro-latest`
+Declo does the opposite.
 
-Use `.env.example` as the starting template.
+Instead of choosing from fixed formats, you describe what you want to track — and Declo builds a complete, structured tracking system for you.
 
-## Supabase Setup
+---
 
-1. Create a Supabase project.
-2. Enable Email auth in Supabase Auth.
-3. Run the SQL in `supabase/schema.sql`.
-4. Copy the project URL and anon key into your environment variables.
+## Why Declo?
 
-## Local Development
+Traditional trackers:
+- Same structure for everyone  
+- Limited flexibility  
+- Hard to adapt as needs evolve  
 
-1. Install dependencies:
-   `python3 -m pip install -r requirements.txt`
-2. Add a `.env.local`.
-3. Run the local development server:
-   `python3 tracker.py`
-4. Open `http://127.0.0.1:5000/`
+Declo:
+- Fully customizable from natural language  
+- Supports multiple tracker types (binary, numeric, timed)  
+- Evolves with your needs  
 
-## Vercel Deployment
+You don’t adjust to the tracker.  
+The tracker adjusts to you.
 
-1. Import the repository into Vercel.
-2. Add the environment variables listed above.
-3. Deploy. Vercel will serve `index.html` at `/` and Python functions from `/api/*`.
+---
 
-## API Surface
+## How it works
 
-- `GET /api/config`
-- `POST /api/parse`
-- `GET /api/state`
-- `POST /api/state`
-- `DELETE /api/account` deletes the user's stored Declo workspace data
+1. Describe what you want to track  
+   > "I want to track workouts, reading, and deep work"
+
+2. Declo generates your system  
+   - Workout → binary / weekly goal  
+   - Reading → pages per day  
+   - Deep work → timed sessions  
+
+3. Start tracking immediately  
+
+---
+
+## Features
+
+- Prompt-based system generation  
+- Multiple tracker types:
+  - Binary (yes/no)
+  - Numeric (quantitative)
+  - Timed sessions  
+- Flexible structure (not fixed templates)  
+- Clean, minimal interface  
+- Persistent state storage  
+
+---
+
+## Tech Stack
+
+- Frontend: HTML, CSS, JavaScript  
+- Backend: Flask (Python)  
+- AI: Gemini 2.5 Flash (Primary), Gemini 1.5 Pro Latest (Fallback)  
+- Database: Supabase  
+
+---
+
+## Local Setup
+
+```bash
+git clone https://github.com/Vaanchhit/Declo.git
+cd Declo
+pip install -r requirements.txt
+python tracker.py

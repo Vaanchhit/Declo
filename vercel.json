@@ -1,7 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
-  "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.12"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    }
   ]
 }

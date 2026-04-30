@@ -14,7 +14,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState } = React;
+    const { useEffect, useLayoutEffect, useMemo, useRef, useState } = React;
 
     const runtimeConfig = {
       supabaseUrl: "",
@@ -24,11 +24,46 @@
     let supabaseClient = null;
 
     const STYLES = `
+      :root {
+        --bg-1: #f7f2e8;
+        --bg-2: #efe4d1;
+        --text: #1d2330;
+        --muted: #6a7180;
+        --accent: #8a6a4b;
+        --accent-soft: #b28f69;
+        --olive: #7a8665;
+        --surface: rgba(255, 251, 244, 0.68);
+        --surface-strong: rgba(255, 251, 244, 0.82);
+        --surface-solid: rgba(255, 251, 244, 0.94);
+        --surface-quiet: rgba(255, 255, 255, 0.72);
+        --line: rgba(99, 75, 52, 0.12);
+        --line-strong: rgba(99, 75, 52, 0.2);
+        --shadow-soft: 0 18px 44px rgba(59, 42, 24, 0.08);
+        --shadow-strong: 0 28px 70px rgba(59, 42, 24, 0.14);
+        --blur: blur(18px);
+      }
+      :root[data-theme="dark"] {
+        --bg-1: #23201d;
+        --bg-2: #171513;
+        --text: #ece1d6;
+        --muted: #bfae9d;
+        --surface: rgba(37, 33, 29, 0.74);
+        --surface-strong: rgba(37, 33, 29, 0.88);
+        --surface-solid: rgba(31, 28, 25, 0.94);
+        --surface-quiet: rgba(58, 53, 48, 0.72);
+        --line: rgba(234, 220, 205, 0.1);
+        --line-strong: rgba(234, 220, 205, 0.16);
+        --shadow-soft: 0 18px 44px rgba(0, 0, 0, 0.24);
+        --shadow-strong: 0 28px 70px rgba(0, 0, 0, 0.34);
+      }
       *, *::before, *::after { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; }
       body {
-        background: linear-gradient(180deg, #f7f2e8 0%, #efe4d1 100%);
-        color: #1d2330;
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.58), transparent 28%),
+          radial-gradient(circle at top right, rgba(178, 143, 105, 0.18), transparent 24%),
+          linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+        color: var(--text);
         font-family: Garamond, Baskerville, Georgia, serif;
       }
       body::before {
@@ -36,15 +71,39 @@
         position: fixed;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(transparent 95%, rgba(104, 88, 67, 0.05) 95%) 0 0 / 100% 34px;
-        opacity: 0.34;
+        background:
+          linear-gradient(transparent 95%, rgba(104, 88, 67, 0.045) 95%) 0 0 / 100% 34px,
+          linear-gradient(90deg, transparent 95%, rgba(104, 88, 67, 0.032) 95%) 0 0 / 34px 100%;
+        opacity: 0.32;
       }
       button, input, textarea, select { font: inherit; }
+      button {
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+        transform: none !important;
+        filter: none !important;
+      }
+      input, textarea, select {
+        transition: box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
 
-      .app-shell {
-        max-width: 980px;
+      .app-shell,
+      .landing-shell {
+        width: min(1240px, calc(100vw - 24px));
         margin: 0 auto;
-        padding: 30px 22px 56px;
+        position: relative;
+        z-index: 1;
+      }
+      .app-shell {
+        padding: 26px 0 56px;
+      }
+      .landing-shell {
+        min-height: 100vh;
+        padding: 26px 0 42px;
       }
       .auth-shell {
         min-height: 100vh;
@@ -52,65 +111,243 @@
         place-items: center;
         padding: 24px;
       }
-      .auth-card {
-        width: min(480px, 100%);
-        background: rgba(255, 251, 244, 0.86);
-        border-radius: 30px;
-        padding: 30px;
-        box-shadow: 0 24px 54px rgba(59, 42, 24, 0.08);
-        display: grid;
-        gap: 18px;
+      .landing-nav,
+      .topbar,
+      .utility-row,
+      .prompt-card,
+      .card,
+      .side-card,
+      .auth-card,
+      .modal,
+      .profile-menu,
+      .section-block,
+      .demo-panel,
+      .hero-panel,
+      .landing-stat {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: var(--blur);
+        -webkit-backdrop-filter: var(--blur);
       }
-      .auth-title {
-        font-size: 2rem;
-        letter-spacing: -0.03em;
-      }
-      .auth-copy {
-        color: #6a7180;
-        font-size: 1rem;
-        line-height: 1.55;
-      }
-      .auth-form {
-        display: grid;
-        gap: 12px;
-      }
-      .auth-input {
-        width: 100%;
-        min-height: 58px;
-        padding: 14px 18px;
-        border: 0;
-        outline: none;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.92);
-        box-shadow: inset 0 0 0 1px rgba(73, 55, 38, 0.08);
-        color: #1d2330;
-        font-size: 1.08rem;
-      }
-      .auth-input:focus {
-        box-shadow: inset 0 0 0 1px rgba(107, 82, 55, 0.2), 0 0 0 5px rgba(164, 139, 107, 0.12);
-      }
+      .landing-nav,
       .topbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 16px;
+        padding: 12px 18px;
+        border-radius: 24px;
+        position: sticky;
+        top: 16px;
+        z-index: 20;
+      }
+      .landing-nav {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+      }
+      .landing-nav-links,
+      .topbar-left,
+      .topbar-actions,
+      .utility-actions,
+      .hero-actions,
+      .hero-proof,
+      .choice-row,
+      .type-pill-row,
+      .prompt-actions,
+      .frequency-pills,
+      .card-actions,
+      .inc-row,
+      .preferences-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .topbar {
         margin-bottom: 22px;
       }
-      .topbar-left {
+      .topbar-left,
+      .brand {
         display: flex;
         align-items: center;
         gap: 14px;
       }
-      .menu-btn {
+      .brand {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+      }
+      .brand-title {
+        font-size: 1.38rem;
+        font-weight: 600;
+        letter-spacing: -0.035em;
+      }
+      .brand-copy,
+      .utility-copy,
+      .status,
+      .auth-copy,
+      .snapshot-copy,
+      .card-sub,
+      .metric,
+      .setting-hint,
+      .tutorial-copy,
+      .empty-logs,
+      .history-meta,
+      .hero-copy,
+      .landing-copy {
+        color: var(--muted);
+      }
+      .brand-copy,
+      .utility-copy {
+        font-size: 0.94rem;
+      }
+
+      .nav-glass-link,
+      .menu-btn,
+      .icon-btn,
+      .composer-btn,
+      .ghost-btn,
+      .tiny-btn,
+      .type-pill,
+      .choice-pill,
+      .toggle-btn,
+      .tracker-link,
+      .drag-handle,
+      .delete-btn,
+      .drawer-close,
+      .frequency-pill,
+      .side-toggle {
+        border: 1px solid var(--line);
+        background: var(--surface-quiet);
+        color: var(--text);
+      }
+      .nav-glass-link,
+      .menu-btn,
+      .icon-btn,
+      .composer-btn,
+      .primary-btn,
+      .ghost-btn,
+      .tiny-btn,
+      .type-pill,
+      .choice-pill,
+      .toggle-btn,
+      .tracker-link,
+      .drag-handle,
+      .delete-btn,
+      .drawer-close,
+      .frequency-pill {
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .nav-glass-link,
+      .composer-btn,
+      .ghost-btn,
+      .tiny-btn,
+      .type-pill,
+      .choice-pill,
+      .toggle-btn,
+      .frequency-pill,
+      .primary-btn {
+        min-height: 44px;
+        padding: 10px 16px;
+      }
+      .nav-glass-link {
+        text-decoration: none;
+      }
+      .menu-btn,
+      .icon-btn,
+      .profile-btn,
+      .drag-handle,
+      .delete-btn {
         width: 42px;
         height: 42px;
-        border: 0;
-        border-radius: 999px;
-        background: rgba(255, 251, 244, 0.84);
-        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.07);
         display: grid;
         place-items: center;
+      }
+      .menu-btn,
+      .icon-btn,
+      .profile-btn,
+      .drag-handle,
+      .delete-btn,
+      .drawer-close,
+      .composer-btn,
+      .ghost-btn,
+      .tiny-btn,
+      .type-pill,
+      .choice-pill,
+      .toggle-btn,
+      .frequency-pill,
+      .nav-glass-link,
+      .tracker-link,
+      .primary-btn,
+      .binary-btn,
+      .inc-btn,
+      .session-btn {
+        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.08);
+      }
+      .menu-btn:hover,
+      .icon-btn:hover,
+      .profile-btn:hover,
+      .drag-handle:hover,
+      .delete-btn:hover,
+      .drawer-close:hover,
+      .composer-btn:hover,
+      .ghost-btn:hover,
+      .tiny-btn:hover,
+      .type-pill:hover,
+      .choice-pill:hover,
+      .toggle-btn:hover,
+      .frequency-pill:hover,
+      .nav-glass-link:hover,
+      .tracker-link:hover,
+      .primary-btn:hover,
+      .binary-btn:hover,
+      .inc-btn:hover,
+      .session-btn:hover,
+      .side-toggle:hover {
+        transform: translateY(-1px);
+        filter: brightness(0.99);
+      }
+      .menu-btn:active,
+      .icon-btn:active,
+      .profile-btn:active,
+      .drag-handle:active,
+      .delete-btn:active,
+      .drawer-close:active,
+      .composer-btn:active,
+      .ghost-btn:active,
+      .tiny-btn:active,
+      .type-pill:active,
+      .choice-pill:active,
+      .toggle-btn:active,
+      .frequency-pill:active,
+      .nav-glass-link:active,
+      .tracker-link:active,
+      .primary-btn:active,
+      .binary-btn:active,
+      .inc-btn:active,
+      .session-btn:active,
+      .side-toggle:active {
+        transform: scale(0.98);
+      }
+      .primary-btn {
+        border: 0;
+        background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+        color: #fff8f2;
         cursor: pointer;
+      }
+      .ghost-btn.danger,
+      .profile-item.danger {
+        color: #a14d4d;
+      }
+      .type-pill.active,
+      .choice-pill.active,
+      .toggle-btn.on,
+      .frequency-pill.active {
+        background: rgba(138, 106, 75, 0.14);
+        border-color: rgba(138, 106, 75, 0.26);
+        color: #6d5237;
       }
       .menu-lines {
         display: grid;
@@ -123,89 +360,18 @@
         border-radius: 999px;
         display: block;
       }
-      .brand {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .brand-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        letter-spacing: -0.03em;
-      }
-      .brand-copy {
-        color: #6a7180;
-        font-size: 0.92rem;
-      }
-      .utility-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 2px;
-      }
-      .utility-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .composer-btn {
-        border: 0;
-        border-radius: 999px;
-        padding: 11px 16px;
-        background: rgba(255, 251, 244, 0.88);
-        color: #1d2330;
-        box-shadow: 0 10px 22px rgba(59, 42, 24, 0.07);
-        cursor: pointer;
-      }
-      .utility-copy {
-        color: #6a7180;
-        font-size: 0.92rem;
-      }
-      .topbar-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        position: relative;
-      }
-      .icon-btn {
-        border: 0;
-        background: rgba(255, 251, 244, 0.84);
-        color: #536070;
-        width: 36px;
-        height: 36px;
-        border-radius: 999px;
-        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.07);
-        cursor: pointer;
-        transition: opacity 0.18s ease, transform 0.18s ease;
-        display: grid;
-        place-items: center;
-        font-size: 0.9rem;
-        transform: scale(1);
-      }
-      .icon-btn:hover { transform: translateY(-1px); }
-      .icon-btn:active { transform: scale(0.97); }
-      .icon-btn:disabled {
-        opacity: 0.38;
-        cursor: default;
-        transform: none;
-      }
-      .tutorial-wrap {
-        position: relative;
-      }
-      .tutorial-btn {
+      .tutorial-wrap,
+      .profile-wrap {
         position: relative;
       }
       .hover-note {
         position: absolute;
         top: calc(100% + 8px);
         right: 0;
-        background: rgba(51, 40, 30, 0.94);
-        color: #fff7ee;
         padding: 6px 10px;
         border-radius: 999px;
+        background: rgba(51, 40, 30, 0.92);
+        color: #fff7ee;
         font-size: 0.8rem;
         opacity: 0;
         pointer-events: none;
@@ -218,48 +384,534 @@
         opacity: 1;
         transform: translateY(0);
       }
-      .profile-wrap { position: relative; }
       .profile-btn {
-        width: 40px;
-        height: 40px;
         border: 0;
         border-radius: 999px;
         background: linear-gradient(135deg, #a88a67, #7f6143);
         color: #fffaf4;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 10px 22px rgba(92, 69, 47, 0.16);
       }
       .profile-menu {
         position: absolute;
         right: 0;
-        top: calc(100% + 10px);
-        min-width: 180px;
-        background: rgba(255, 251, 244, 0.96);
-        border-radius: 18px;
-        box-shadow: 0 18px 40px rgba(59, 42, 24, 0.12);
+        top: calc(100% + 12px);
+        min-width: 220px;
         padding: 8px;
+        border-radius: 20px;
         display: grid;
-        gap: 4px;
-        z-index: 20;
+        gap: 6px;
+        z-index: 24;
       }
       .profile-item {
         border: 0;
         background: transparent;
+        color: var(--text);
         text-align: left;
+        border-radius: 14px;
+        min-height: 42px;
         padding: 10px 12px;
-        border-radius: 12px;
         cursor: pointer;
-        color: #1d2330;
       }
-      .profile-item:hover { background: #f5ecde; }
-      .profile-item.danger { color: #a14d4d; }
-      .profile-item.soft { color: #6a7180; }
+      .profile-item:hover {
+        background: rgba(138, 106, 75, 0.08);
+      }
+      .profile-item.soft {
+        color: var(--muted);
+      }
+      button[data-tip],
+      a[data-tip] {
+        position: relative;
+      }
+      button[data-tip]::after,
+      a[data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        top: calc(100% + 9px);
+        left: 50%;
+        transform: translateX(-50%) translateY(-4px);
+        padding: 7px 10px;
+        border-radius: 12px;
+        background: rgba(51, 40, 30, 0.92);
+        color: #fff7ee;
+        font-size: 0.76rem;
+        line-height: 1.35;
+        width: max-content;
+        max-width: 220px;
+        white-space: normal;
+        opacity: 0;
+        pointer-events: none;
+        box-shadow: 0 10px 24px rgba(59, 42, 24, 0.18);
+        transition: opacity 0.14s ease, transform 0.14s ease;
+        z-index: 40;
+      }
+      button[data-tip]:hover::after,
+      button[data-tip]:focus-visible::after,
+      a[data-tip]:hover::after,
+      a[data-tip]:focus-visible::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      .profile-item[data-tip]::after {
+        left: auto;
+        right: 10px;
+        transform: translateY(-4px);
+      }
+      .profile-item[data-tip]:hover::after,
+      .profile-item[data-tip]:focus-visible::after {
+        transform: translateY(0);
+      }
+      .profile-divider {
+        height: 1px;
+        background: rgba(99, 75, 52, 0.1);
+        margin: 2px 4px;
+      }
+      .profile-submenu {
+        display: grid;
+        gap: 6px;
+        padding: 4px 0 2px 12px;
+        margin-left: 8px;
+        border-left: 1px solid rgba(99, 75, 52, 0.12);
+      }
+
+      .hero-panel,
+      .demo-panel,
+      .auth-card,
+      .landing-stat,
+      .contrast-card,
+      .step-card,
+      .belief-panel,
+      .cta-panel {
+        border-radius: 30px;
+      }
+      .landing-story {
+        display: grid;
+        gap: 88px;
+        margin-top: 48px;
+        padding-bottom: 72px;
+      }
+      .landing-section {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 24px;
+      }
+      .landing-section-head {
+        max-width: 760px;
+        margin: 0 auto;
+        display: grid;
+        gap: 10px;
+        text-align: center;
+      }
+      .landing-section-head.left {
+        margin: 0;
+        text-align: left;
+      }
+      .landing-eyebrow {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #6f7888;
+      }
+      .landing-heading {
+        margin: 0;
+        font-size: clamp(1.95rem, 3.3vw, 2.9rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+      .landing-subtext {
+        color: var(--muted);
+        font-size: 0.98rem;
+        line-height: 1.66;
+      }
+      .hero-panel {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        padding: 44px 42px;
+        display: grid;
+        gap: 22px;
+        text-align: center;
+      }
+      .hero-kicker,
+      .section-title,
+      .side-title,
+      .detail-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .hero-kicker,
+      .section-title,
+      .side-title,
+      .detail-label,
+      .bar-label {
+        color: #6f7888;
+      }
+      .hero-title {
+        max-width: none;
+        margin: 0 auto;
+        display: grid;
+        gap: 0.08em;
+        font-size: clamp(2.65rem, 5.2vw, 4.55rem);
+        line-height: 0.96;
+        letter-spacing: -0.045em;
+        font-weight: 600;
+      }
+      .type-line-wrap {
+        display: block;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      .type-line-wrap:nth-child(1) { width: 21ch; }
+      .type-line-wrap:nth-child(2) { width: 22ch; }
+      .type-line-wrap:nth-child(3) { width: 29ch; }
+      .type-line {
+        display: block;
+        text-align: left;
+        width: 0ch;
+        margin: 0;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .type-line.line-1 {
+        animation: typeLine21 1.5s steps(21, end) forwards;
+      }
+      .type-line.line-2 {
+        animation: typeLine22 1.6s steps(22, end) 1.5s forwards;
+      }
+      .type-line.line-3 {
+        animation: typeLine29 1.9s steps(29, end) 3.1s forwards;
+      }
+      @keyframes typeLine21 {
+        from { width: 0ch; }
+        to { width: 21ch; }
+      }
+      @keyframes typeLine22 {
+        from { width: 0ch; }
+        to { width: 22ch; }
+      }
+      @keyframes typeLine29 {
+        from { width: 0ch; }
+        to { width: 29ch; }
+      }
+      .hero-copy {
+        max-width: 720px;
+        margin: 0 auto;
+        font-size: 1.04rem;
+        line-height: 1.58;
+      }
+      .hero-support {
+        max-width: 620px;
+        margin: 0 auto;
+        color: var(--muted);
+        font-size: 0.94rem;
+        line-height: 1.62;
+      }
+      .hero-proof {
+        justify-content: center;
+        gap: 12px;
+      }
+      .landing-stat {
+        min-width: 150px;
+        padding: 16px 18px;
+        display: grid;
+        gap: 4px;
+        text-align: left;
+      }
+      .landing-stat strong {
+        font-size: 1.45rem;
+        letter-spacing: -0.04em;
+      }
+      .landing-copy {
+        font-size: 0.92rem;
+      }
+      .contrast-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .contrast-card,
+      .step-card,
+      .feature-card,
+      .belief-panel,
+      .cta-panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: var(--blur);
+        -webkit-backdrop-filter: var(--blur);
+      }
+      .contrast-card {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+      .contrast-card.muted {
+        background: rgba(255, 255, 255, 0.36);
+      }
+      .contrast-card.highlight {
+        background: rgba(255, 251, 244, 0.82);
+        border-color: rgba(138, 106, 75, 0.2);
+        box-shadow: 0 24px 54px rgba(92, 69, 47, 0.12);
+      }
+      .contrast-label {
+        font-size: 1.22rem;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+      .contrast-list {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .contrast-list li {
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.52);
+        border: 1px solid rgba(99, 75, 52, 0.08);
+        color: var(--muted);
+      }
+      .contrast-card.highlight .contrast-list li {
+        color: var(--text);
+        background: rgba(138, 106, 75, 0.08);
+        border-color: rgba(138, 106, 75, 0.14);
+      }
+      .steps-grid {
+        width: min(860px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+      .step-card {
+        padding: 22px 24px;
+        display: grid;
+        gap: 8px;
+      }
+      .step-number {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6f7888;
+      }
+      .step-title {
+        font-size: 1.18rem;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+      .capability-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .feature-card {
+        padding: 20px 22px;
+        border-radius: 24px;
+        display: grid;
+        gap: 10px;
+      }
+      .feature-card strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 1rem;
+        letter-spacing: -0.03em;
+        font-weight: 600;
+      }
+      .feature-card span {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .demo-panel {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+      }
+      .demo-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+      .demo-label {
+        font-size: 1.02rem;
+      }
+      .demo-badge {
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(122, 134, 101, 0.16);
+        color: #59634b;
+        font-size: 0.84rem;
+      }
+      .demo-browser {
+        border-radius: 22px;
+        padding: 15px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.46));
+        border: 1px solid rgba(99, 75, 52, 0.12);
+        display: grid;
+        gap: 14px;
+        min-height: 320px;
+      }
+      .demo-dots {
+        display: flex;
+        gap: 6px;
+      }
+      .demo-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(113, 91, 70, 0.26);
+      }
+      .demo-canvas {
+        display: grid;
+        gap: 12px;
+      }
+      .demo-banner {
+        padding: 18px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(138, 106, 75, 0.16), rgba(178, 143, 105, 0.2));
+        display: grid;
+        gap: 8px;
+      }
+      .demo-banner strong {
+        font-size: 1.45rem;
+        letter-spacing: -0.04em;
+      }
+      .demo-trackers {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .demo-tracker {
+        border-radius: 18px;
+        padding: 14px;
+        background: rgba(255, 251, 244, 0.72);
+        border: 1px solid rgba(99, 75, 52, 0.1);
+        display: grid;
+        gap: 10px;
+      }
+      .demo-pill {
+        width: fit-content;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(74, 84, 102, 0.08);
+        color: #516072;
+        font-size: 0.76rem;
+      }
+      .demo-progress {
+        width: 100%;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(117, 101, 81, 0.12);
+        overflow: hidden;
+      }
+      .demo-progress span {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #b69472, #876545);
+      }
+      .demo-placeholder {
+        border-radius: 20px;
+        border: 1px dashed rgba(99, 75, 52, 0.22);
+        padding: 16px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .belief-panel,
+      .cta-panel {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        padding: 28px 32px;
+        text-align: center;
+      }
+      .belief-panel {
+        display: grid;
+        gap: 14px;
+      }
+      .belief-title {
+        margin: 0;
+        font-size: clamp(1.8rem, 3.3vw, 2.55rem);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+      .belief-copy {
+        max-width: 700px;
+        margin: 0 auto;
+        color: var(--muted);
+        line-height: 1.7;
+        font-size: 1.04rem;
+      }
+      .cta-panel {
+        display: grid;
+        gap: 22px;
+      }
+      .cta-title {
+        margin: 0;
+        font-size: clamp(1.95rem, 3.5vw, 2.9rem);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+      .landing-auth-card {
+        width: min(620px, 100%);
+        margin: 0 auto;
+        padding: 28px;
+        display: grid;
+        gap: 18px;
+        position: static;
+        text-align: left;
+      }
+      .auth-title {
+        font-size: clamp(1.9rem, 3vw, 2.2rem);
+        letter-spacing: -0.04em;
+        line-height: 0.98;
+        font-weight: 600;
+      }
+      .auth-form {
+        display: grid;
+        gap: 12px;
+      }
+      .auth-input,
+      .prompt-input,
+      .manual-input,
+      .inline-input,
+      .inline-select,
+      .micro-input {
+        width: 100%;
+        border: 1px solid rgba(99, 75, 52, 0.08);
+        outline: none;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px transparent;
+      }
+      .auth-input,
+      .manual-input,
+      .inline-input,
+      .inline-select {
+        min-height: 52px;
+        padding: 12px 14px;
+        border-radius: 16px;
+      }
+      .auth-input:focus,
+      .prompt-input:focus,
+      .manual-input:focus,
+      .inline-input:focus,
+      .inline-select:focus,
+      .micro-input:focus {
+        box-shadow: inset 0 0 0 1px rgba(107, 82, 55, 0.16), 0 0 0 5px rgba(164, 139, 107, 0.12);
+      }
 
       .drawer-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(33, 25, 18, 0.16);
+        background: rgba(26, 20, 15, 0.22);
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.18s ease;
@@ -271,17 +923,19 @@
       }
       .drawer {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: min(320px, calc(100vw - 32px));
-        height: 100vh;
-        background: rgba(247, 241, 230, 0.96);
-        box-shadow: 22px 0 44px rgba(59, 42, 24, 0.12);
-        padding: 24px 18px 28px;
-        transform: translateX(-102%);
-        transition: transform 0.2s ease;
+        inset: 12px auto 12px 12px;
+        width: min(360px, calc(100vw - 24px));
+        background: var(--surface-solid);
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        box-shadow: var(--shadow-strong);
+        backdrop-filter: var(--blur);
+        -webkit-backdrop-filter: var(--blur);
+        padding: 18px;
+        transform: translateX(calc(-100% - 18px));
+        transition: transform 0.22s ease;
         z-index: 25;
-        overflow: auto;
+        overflow-y: auto;
       }
       .drawer.open {
         transform: translateX(0);
@@ -290,59 +944,73 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 12px;
         margin-bottom: 14px;
       }
       .drawer-title {
-        font-size: 1.2rem;
+        font-size: 1.22rem;
       }
       .drawer-close {
-        width: 32px;
-        height: 32px;
-        border: 0;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.72);
-        color: #715b46;
-        cursor: pointer;
+        width: 36px;
+        height: 36px;
       }
       .sidebar {
         display: grid;
         gap: 14px;
       }
       .side-card {
-        background: rgba(255, 251, 244, 0.78);
-        border-radius: 22px;
-        padding: 16px;
-        box-shadow: 0 10px 26px rgba(59, 42, 24, 0.06);
+        padding: 10px;
+        border-radius: 24px;
+      }
+      .side-toggle {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 18px;
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        cursor: pointer;
+        box-shadow: none;
+      }
+      .side-toggle-copy {
+        display: grid;
+        gap: 4px;
+        text-align: left;
       }
       .side-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: #6f7888;
-        margin-bottom: 12px;
+        margin: 0;
+      }
+      .side-summary {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      .chevron {
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      .side-card-body {
+        padding: 12px 10px 6px;
+        display: grid;
+        gap: 12px;
       }
       .snapshot {
-        font-size: 1.2rem;
+        font-size: 2rem;
         font-weight: 700;
-        letter-spacing: -0.03em;
-      }
-      .snapshot-copy {
-        color: #6a7180;
-        font-size: 0.86rem;
-        margin-top: 6px;
+        letter-spacing: -0.05em;
       }
       .heatmap {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 6px;
+        gap: 7px;
       }
       .heat-cell {
         width: 100%;
         aspect-ratio: 1;
         border: 0;
-        border-radius: 5px;
-        background: #e8dfd1;
+        border-radius: 7px;
+        background: rgba(117, 101, 81, 0.14);
         cursor: pointer;
       }
       .heat-cell.l1 { background: #d8ddc9; }
@@ -352,163 +1020,124 @@
         display: flex;
         align-items: end;
         gap: 8px;
-        height: 92px;
+        height: 108px;
       }
       .bar-wrap {
         flex: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
       }
       .bar {
         width: 100%;
+        min-height: 8px;
         border-radius: 999px;
         background: linear-gradient(180deg, #b89370 0%, #8c6848 100%);
-        min-height: 6px;
-      }
-      .bar-label {
-        font-size: 0.7rem;
-        color: #8b7764;
       }
       .tracker-list {
         display: grid;
-        gap: 6px;
+        gap: 8px;
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 4px;
       }
       .tracker-link {
-        border: 0;
-        background: transparent;
+        width: 100%;
         text-align: left;
-        color: #667082;
-        padding: 6px 0;
-        cursor: pointer;
+        min-height: 44px;
+        padding: 10px 14px;
       }
-      .tracker-link:hover { color: #1d2330; }
 
       .main {
         display: grid;
         gap: 18px;
-        max-width: 760px;
+        max-width: 920px;
         margin: 0 auto;
       }
-      .prompt-card {
-        background: rgba(255, 251, 244, 0.82);
-        border-radius: 28px;
-        padding: 18px;
-        box-shadow: 0 18px 40px rgba(59, 42, 24, 0.08);
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      .main.composer-open {
+        gap: 24px;
       }
-      .prompt-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 20px 42px rgba(59, 42, 24, 0.09);
+      .utility-row,
+      .prompt-card,
+      .card {
+        border-radius: 28px;
+      }
+      .utility-row {
+        padding: 18px 20px;
+        display: grid;
+        gap: 14px;
+        align-items: start;
+      }
+      .utility-row.composer-active {
+        margin-bottom: 8px;
+        padding-bottom: 24px;
+      }
+      .composer-btn {
+        padding-inline: 18px;
+      }
+      .utility-copy {
+        max-width: 56ch;
+        line-height: 1.5;
+      }
+      .prompt-card {
+        padding: 18px;
       }
       .prompt-input {
-        width: 100%;
-        min-height: 92px;
+        min-height: 118px;
+        resize: vertical;
         padding: 18px 20px;
         border-radius: 22px;
-        border: 0;
-        outline: none;
-        resize: vertical;
-        background: rgba(255,255,255,0.92);
-        color: #1d2330;
         font-size: 1rem;
-        line-height: 1.55;
-        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.05);
-        transition: box-shadow 0.15s ease, transform 0.15s ease;
+        line-height: 1.6;
       }
-      .prompt-input:focus {
-        box-shadow:
-          inset 0 0 0 1px rgba(118, 94, 68, 0.18),
-          0 0 0 5px rgba(179, 158, 132, 0.14);
-        transform: scale(1.01);
+      .prompt-input::placeholder {
+        color: #7a8290;
       }
-      .prompt-input::placeholder { color: #7a8290; }
-      .prompt-row {
-        margin-top: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .prompt-actions {
-        display: flex;
-        align-items: center;
+      .prompt-frequency {
+        margin-top: 14px;
+        display: grid;
         gap: 10px;
+      }
+      .frequency-label {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .frequency-pills {
+        gap: 8px;
+      }
+      .frequency-pill {
+        min-width: 92px;
+        justify-content: center;
+      }
+      .custom-frequency-input {
+        max-width: 280px;
+      }
+      .prompt-row {
+        margin-top: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 14px;
         flex-wrap: wrap;
       }
-      .primary-btn,
-      .ghost-btn,
-      .tiny-btn {
-        border: 0;
-        border-radius: 999px;
-        cursor: pointer;
-      }
-      .primary-btn {
-        padding: 11px 16px;
-        background: linear-gradient(135deg, #8a6a4b, #b28f69);
-        color: #fff8f2;
-        box-shadow: 0 12px 26px rgba(92, 69, 47, 0.16);
-        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
-      }
-      .ghost-btn {
-        padding: 10px 14px;
-        background: rgba(255,255,255,0.82);
-        color: #5d4a39;
-        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
-      }
-      .ghost-btn.danger {
-        color: #a14d4d;
-      }
-      .tiny-btn {
-        padding: 8px 10px;
-        background: rgba(255,255,255,0.76);
-        color: #6a5b4d;
-        transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
-      }
-      .primary-btn:hover, .ghost-btn:hover, .tiny-btn:hover, .inc-btn:hover, .session-btn:hover, .menu-btn:hover, .profile-btn:hover, .drag-handle:hover, .delete-btn:hover {
-        filter: brightness(0.98);
-      }
-      .primary-btn:active, .ghost-btn:active, .tiny-btn:active, .inc-btn:active, .session-btn:active, .menu-btn:active, .profile-btn:active, .drag-handle:active, .delete-btn:active {
-        transform: scale(0.97);
+      .prompt-status {
+        display: grid;
+        gap: 4px;
+        justify-items: end;
       }
       .status {
-        color: #6a7180;
-        font-size: 0.88rem;
+        font-size: 0.9rem;
       }
       .manual-row {
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
         align-items: center;
-        margin-top: 12px;
       }
-      .manual-input, .inline-input, .inline-select {
-        border: 0;
-        outline: none;
-        border-radius: 14px;
-        background: rgba(255,255,255,0.95);
-        padding: 10px 12px;
-        color: #1d2330;
-        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.06);
-      }
-      .manual-input { min-width: 180px; flex: 1; }
-      .type-pill-row {
-        display: flex;
-        gap: 8px;
-      }
-      .type-pill {
-        padding: 10px 12px;
-        border-radius: 999px;
-        border: 0;
-        background: rgba(255,255,255,0.86);
-        color: #6d5d4d;
-        cursor: pointer;
-      }
-      .type-pill.active {
-        background: rgba(138, 106, 75, 0.12);
-        color: #7b5e43;
+      .manual-input {
+        min-width: 200px;
+        flex: 1;
       }
 
       .cards {
@@ -516,18 +1145,15 @@
         gap: 14px;
       }
       .card {
-        background: rgba(255, 251, 244, 0.84);
-        border-radius: 26px;
         padding: 18px;
-        box-shadow: 0 14px 30px rgba(59, 42, 24, 0.08);
         transition: transform 0.18s ease, box-shadow 0.18s ease;
       }
       .card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 18px 34px rgba(59, 42, 24, 0.1);
+        box-shadow: 0 22px 48px rgba(59, 42, 24, 0.1);
       }
       .card.dragging {
-        opacity: 0.55;
+        opacity: 0.56;
       }
       .card-head {
         display: flex;
@@ -539,113 +1165,108 @@
       .card-title-wrap {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
       }
       .card-title {
-        font-size: 1.08rem;
+        font-size: 1.18rem;
         font-weight: 600;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.03em;
         border: 0;
         background: transparent;
         padding: 0;
         text-align: left;
-        color: #1d2330;
+        color: var(--text);
         cursor: pointer;
-      }
-      .card-sub {
-        color: #6a7180;
-        font-size: 0.82rem;
       }
       .meta-pill {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         width: fit-content;
-        padding: 4px 10px;
+        padding: 5px 10px;
         border-radius: 999px;
         background: rgba(74, 84, 102, 0.08);
         color: #516072;
         font-size: 0.76rem;
         text-transform: capitalize;
       }
-      .card-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
       .drag-handle,
       .delete-btn {
-        width: 30px;
-        height: 30px;
-        border: 0;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.9);
-        color: #8b7764;
-        cursor: pointer;
+        width: 36px;
+        height: 36px;
       }
       .primary-zone {
         display: grid;
-        gap: 12px;
+        gap: 14px;
       }
-      .binary-row {
+      .binary-row,
+      .session-line,
+      .numeric-line {
         display: flex;
         align-items: center;
         gap: 14px;
+        flex-wrap: wrap;
       }
       .binary-btn {
-        width: 50px;
-        height: 50px;
+        width: 58px;
+        height: 58px;
         border-radius: 999px;
-        border: 2px solid #ddd1c2;
-        background: transparent;
+        border: 1px solid rgba(117, 101, 81, 0.2);
+        background: rgba(255, 255, 255, 0.8);
         color: #8b7764;
         cursor: pointer;
-        transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        font-size: 1.25rem;
       }
       .binary-btn.done {
         background: #7a8665;
         border-color: #7a8665;
         color: white;
-        transform: scale(1.05);
+        transform: scale(1.04);
       }
       .metric {
-        font-size: 0.92rem;
-        color: #6a7180;
+        font-size: 0.94rem;
+        line-height: 1.5;
       }
-      .metric strong { color: #1d2330; }
-      .numeric-line {
-        display: flex;
-        align-items: end;
-        gap: 8px;
+      .metric strong,
+      .setting-label {
+        color: var(--text);
       }
-      .count {
-        font-size: 2rem;
+      .count,
+      .time {
+        font-size: 2.25rem;
         font-weight: 700;
-        letter-spacing: -0.04em;
+        letter-spacing: -0.05em;
       }
       .unit {
         color: #8b7764;
-        margin-bottom: 4px;
       }
-      .inc-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .inc-btn {
+      .inc-btn,
+      .session-btn {
         border: 0;
         border-radius: 999px;
+        cursor: pointer;
+      }
+      .inc-btn {
+        min-height: 42px;
+        padding: 10px 14px;
         background: rgba(138, 106, 75, 0.12);
         color: #7f6143;
-        padding: 10px 12px;
-        cursor: pointer;
-        transition: transform 0.16s ease, filter 0.16s ease;
+      }
+      .session-btn {
+        min-height: 46px;
+        padding: 11px 18px;
+        background: #3f3328;
+        color: white;
+      }
+      .session-btn.running {
+        background: rgba(138, 106, 75, 0.14);
+        color: #7f6143;
       }
       .progress-track {
         width: 100%;
-        height: 6px;
+        height: 8px;
         border-radius: 999px;
-        background: #e8dfd1;
+        background: rgba(117, 101, 81, 0.12);
         overflow: hidden;
       }
       .progress-fill {
@@ -653,34 +1274,11 @@
         border-radius: 999px;
         background: linear-gradient(90deg, #b69472, #876545);
       }
-      .session-line {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-      .time {
-        font-size: 1.9rem;
-        font-weight: 700;
-        letter-spacing: -0.04em;
-      }
-      .session-btn {
-        border: 0;
-        border-radius: 999px;
-        padding: 11px 18px;
-        cursor: pointer;
-        background: #3f3328;
-        color: white;
-        transition: transform 0.16s ease, filter 0.16s ease;
-      }
-      .session-btn.running {
-        background: rgba(138, 106, 75, 0.14);
-        color: #7f6143;
-      }
       .session-pulse {
         width: 8px;
         height: 8px;
         border-radius: 999px;
-        background: #8a6a4b;
+        background: var(--accent);
         animation: pulse 1.4s infinite;
       }
       @keyframes pulse {
@@ -690,8 +1288,8 @@
       .secondary-row {
         display: flex;
         justify-content: space-between;
-        gap: 12px;
         align-items: center;
+        gap: 12px;
         flex-wrap: wrap;
       }
       .link-btn {
@@ -703,25 +1301,19 @@
       }
       .detail-row {
         display: grid;
-        gap: 10px;
-        margin-top: 8px;
-        padding-top: 10px;
+        gap: 12px;
+        margin-top: 10px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(99, 75, 52, 0.08);
       }
       .detail-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 10px;
       }
       .detail-label {
         display: grid;
         gap: 6px;
-        color: #6f7888;
-        font-size: 0.76rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-      .detail-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       }
       .history-list {
         display: grid;
@@ -733,14 +1325,12 @@
         justify-content: space-between;
         gap: 12px;
         padding: 10px 12px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.74);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.64);
+        border: 1px solid rgba(99, 75, 52, 0.08);
       }
-      .history-meta {
-        color: #6a7180;
-        font-size: 0.84rem;
-      }
-      .optional-input-row {
+      .optional-input-row,
+      .detail-actions {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -748,176 +1338,74 @@
       }
       .micro-input {
         min-width: 112px;
-        border: 0;
-        outline: none;
+        min-height: 42px;
         border-radius: 999px;
-        background: rgba(255,255,255,0.92);
         padding: 10px 12px;
-        color: #1d2330;
-        box-shadow: inset 0 0 0 1px rgba(59, 42, 24, 0.06);
       }
-      .detail-actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-      }
+
       .modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(33, 25, 18, 0.24);
+        background: rgba(33, 25, 18, 0.26);
         display: grid;
         place-items: center;
         z-index: 30;
+        padding: 18px;
       }
       .modal {
-        width: min(420px, calc(100vw - 28px));
-        background: rgba(255, 251, 244, 0.96);
-        border-radius: 24px;
-        padding: 18px;
-        box-shadow: 0 20px 48px rgba(59, 42, 24, 0.18);
+        width: min(460px, calc(100vw - 24px));
+        border-radius: 28px;
+        padding: 20px;
         display: grid;
         gap: 14px;
       }
       .preferences-modal {
-        width: min(560px, calc(100vw - 28px));
+        width: min(580px, calc(100vw - 24px));
+      }
+      .modal-head,
+      .setting-row,
+      .demo-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .modal-title {
+        font-size: 1.05rem;
+        font-weight: 700;
       }
       .section-stack {
         display: grid;
         gap: 16px;
       }
       .section-block {
+        padding: 16px;
+        border-radius: 22px;
         display: grid;
-        gap: 12px;
-        padding: 14px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.6);
-      }
-      .section-title {
-        font-size: 0.9rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #6f7888;
-      }
-      .setting-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
         gap: 14px;
-        flex-wrap: wrap;
       }
       .setting-copy {
         display: grid;
         gap: 4px;
       }
-      .setting-label {
-        font-size: 1rem;
-      }
-      .setting-hint {
-        color: #6a7180;
-        font-size: 0.85rem;
-      }
-      .choice-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .choice-pill {
-        border: 0;
-        border-radius: 999px;
-        padding: 8px 12px;
-        background: rgba(255,255,255,0.84);
-        color: #5a6271;
-        cursor: pointer;
-        transition: transform 0.16s ease, filter 0.16s ease;
-      }
-      .choice-pill.active {
-        background: rgba(74, 84, 102, 0.1);
-        color: #1d2330;
-      }
-      .toggle-btn {
-        border: 0;
-        border-radius: 999px;
-        padding: 8px 12px;
-        min-width: 60px;
-        background: rgba(255,255,255,0.84);
-        color: #1d2330;
-        cursor: pointer;
-      }
-      .toggle-btn.on {
-        background: rgba(122, 134, 101, 0.18);
-        color: #556144;
-      }
-      .preferences-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        flex-wrap: wrap;
-      }
-      :root[data-theme="dark"] body {
-        background: linear-gradient(180deg, #23201d 0%, #171513 100%);
-        color: #e8e0d7;
-      }
-      :root[data-theme="dark"] .prompt-card,
-      :root[data-theme="dark"] .card,
-      :root[data-theme="dark"] .side-card,
-      :root[data-theme="dark"] .auth-card,
-      :root[data-theme="dark"] .modal,
-      :root[data-theme="dark"] .profile-menu,
-      :root[data-theme="dark"] .section-block {
-        background: rgba(36, 33, 30, 0.9);
-        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
-      }
-      :root[data-theme="dark"] .prompt-input,
-      :root[data-theme="dark"] .manual-input,
-      :root[data-theme="dark"] .inline-input,
-      :root[data-theme="dark"] .inline-select,
-      :root[data-theme="dark"] .micro-input,
-      :root[data-theme="dark"] .auth-input,
-      :root[data-theme="dark"] .ghost-btn,
-      :root[data-theme="dark"] .choice-pill,
-      :root[data-theme="dark"] .toggle-btn,
-      :root[data-theme="dark"] .icon-btn,
-      :root[data-theme="dark"] .composer-btn,
-      :root[data-theme="dark"] .menu-btn {
-        background: rgba(49, 45, 41, 0.94);
-        color: #e8e0d7;
-      }
-      :root[data-theme="dark"] .metric strong,
-      :root[data-theme="dark"] .card-title,
-      :root[data-theme="dark"] .setting-label,
-      :root[data-theme="dark"] .brand-copy,
-      :root[data-theme="dark"] .status,
-      :root[data-theme="dark"] .utility-copy,
-      :root[data-theme="dark"] .setting-hint,
-      :root[data-theme="dark"] .card-sub,
-      :root[data-theme="dark"] .metric {
-        color: #cfc3b7;
-      }
-      :root[data-motion="minimal"] * {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-      .modal-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-      }
-      .modal-title {
-        font-size: 1rem;
-        font-weight: 700;
-      }
       .logs {
         display: grid;
         gap: 8px;
-        max-height: 280px;
+        max-height: 300px;
         overflow: auto;
       }
-      .tutorial-copy {
-        color: #675847;
+      .log-item {
+        padding: 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(99, 75, 52, 0.08);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .tutorial-copy,
+      .tutorial-list {
         line-height: 1.6;
       }
       .tutorial-list {
@@ -925,28 +1413,178 @@
         gap: 8px;
         color: #4f4438;
       }
-      .log-item {
-        padding: 10px 12px;
-        border-radius: 14px;
-        background: #f7eee2;
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
+
+      :root[data-theme="dark"] .auth-input,
+      :root[data-theme="dark"] .prompt-input,
+      :root[data-theme="dark"] .manual-input,
+      :root[data-theme="dark"] .inline-input,
+      :root[data-theme="dark"] .inline-select,
+      :root[data-theme="dark"] .micro-input,
+      :root[data-theme="dark"] .nav-glass-link,
+      :root[data-theme="dark"] .menu-btn,
+      :root[data-theme="dark"] .icon-btn,
+      :root[data-theme="dark"] .composer-btn,
+      :root[data-theme="dark"] .ghost-btn,
+      :root[data-theme="dark"] .tiny-btn,
+      :root[data-theme="dark"] .type-pill,
+      :root[data-theme="dark"] .choice-pill,
+      :root[data-theme="dark"] .toggle-btn,
+      :root[data-theme="dark"] .frequency-pill,
+      :root[data-theme="dark"] .tracker-link,
+      :root[data-theme="dark"] .drag-handle,
+      :root[data-theme="dark"] .delete-btn,
+      :root[data-theme="dark"] .drawer-close,
+      :root[data-theme="dark"] .side-toggle,
+      :root[data-theme="dark"] .binary-btn,
+      :root[data-theme="dark"] .history-item,
+      :root[data-theme="dark"] .log-item,
+      :root[data-theme="dark"] .feature-card,
+      :root[data-theme="dark"] .demo-tracker,
+      :root[data-theme="dark"] .demo-browser,
+      :root[data-theme="dark"] .contrast-card,
+      :root[data-theme="dark"] .step-card,
+      :root[data-theme="dark"] .belief-panel,
+      :root[data-theme="dark"] .cta-panel {
+        background: rgba(49, 45, 41, 0.92);
+        color: var(--text);
+        border-color: var(--line-strong);
       }
-      .empty-logs {
-        color: #6f7888;
-        font-size: 0.9rem;
+      :root[data-theme="dark"] .contrast-list li,
+      :root[data-theme="dark"] .demo-placeholder {
+        background: rgba(58, 53, 48, 0.82);
+        color: var(--muted);
+        border-color: var(--line-strong);
+      }
+      :root[data-theme="dark"] .demo-banner {
+        background: linear-gradient(135deg, rgba(138, 106, 75, 0.22), rgba(98, 82, 63, 0.34));
+      }
+      :root[data-theme="dark"] .binary-btn.done {
+        background: #6d785b;
+        border-color: #6d785b;
+      }
+      :root[data-theme="dark"] .type-pill.active,
+      :root[data-theme="dark"] .choice-pill.active,
+      :root[data-theme="dark"] .toggle-btn.on,
+      :root[data-theme="dark"] .frequency-pill.active {
+        color: #e8d5c0;
+      }
+      :root[data-motion="minimal"] * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
       }
 
       @media (max-width: 900px) {
-        .app-shell { padding-inline: 16px; }
+        .app-shell,
+        .landing-shell {
+          width: min(100vw - 20px, 1240px);
+        }
+        .landing-story {
+          gap: 72px;
+        }
+        .contrast-grid,
+        .capability-grid,
+        .demo-trackers {
+          grid-template-columns: 1fr;
+        }
+        .hero-panel,
+        .belief-panel,
+        .cta-panel {
+          padding: 32px 26px;
+        }
+        .type-line-wrap,
+        .type-line-wrap:nth-child(n) {
+          width: auto;
+          margin: 0 auto;
+        }
+        .type-line {
+          white-space: normal;
+          width: auto;
+          animation: none;
+          margin: 0 auto;
+        }
       }
       @media (max-width: 640px) {
-        .app-shell { padding: 18px 14px 40px; }
-        .detail-grid { grid-template-columns: 1fr 1fr; }
-        .auth-card { padding: 22px; }
-        .topbar { align-items: flex-start; }
-        .brand-title { font-size: 1.3rem; }
+        .app-shell,
+        .landing-shell {
+          width: min(100vw - 16px, 1240px);
+          padding-top: 16px;
+        }
+        .landing-nav,
+        .topbar,
+        .utility-row,
+        .prompt-card,
+        .card,
+        .hero-panel,
+        .demo-panel,
+        .auth-card,
+        .belief-panel,
+        .cta-panel,
+        .contrast-card,
+        .step-card,
+        .feature-card {
+          border-radius: 24px;
+        }
+        .landing-nav,
+        .topbar {
+          align-items: flex-start;
+        }
+        .landing-nav {
+          flex-direction: column;
+        }
+        .landing-nav-links {
+          width: 100%;
+        }
+        .nav-glass-link {
+          flex: 1 1 calc(50% - 10px);
+          justify-content: center;
+          display: inline-flex;
+        }
+        .hero-panel,
+        .demo-panel,
+        .auth-card,
+        .belief-panel,
+        .cta-panel {
+          padding: 22px;
+        }
+        .hero-title {
+          max-width: none;
+          font-size: clamp(2.2rem, 11vw, 3.2rem);
+        }
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+        .landing-story {
+          gap: 56px;
+          margin-top: 34px;
+          padding-bottom: 56px;
+        }
+        .hero-actions {
+          justify-content: center;
+        }
+        .hero-proof {
+          display: grid;
+        }
+        .landing-stat {
+          width: 100%;
+        }
+        .prompt-row {
+          align-items: stretch;
+        }
+        .prompt-status {
+          justify-items: start;
+        }
+        .frequency-pill {
+          min-width: auto;
+        }
+        .cta-title,
+        .belief-title,
+        .landing-heading {
+          max-width: none;
+        }
+        .landing-auth-card {
+          padding: 22px;
+        }
       }
     `;
 
@@ -1099,6 +1737,8 @@
     function normalizeTracker(raw) {
       const type = (raw.type || raw.mode || "binary").toLowerCase();
       const resolvedType = ["binary", "numeric", "session"].includes(type) ? type : "binary";
+      const rawFrequency = String(raw.frequency || "daily").toLowerCase();
+      const frequency = ["daily", "weekly", "monthly", "yearly", "custom"].includes(rawFrequency) ? rawFrequency : "daily";
       const increments = Array.isArray(raw.increments) && raw.increments.length
         ? raw.increments.filter((value) => Number(value) > 0).slice(0, 3).map(Number)
         : (resolvedType === "numeric" ? [1] : []);
@@ -1130,7 +1770,8 @@
         logging_mode: raw.logging_mode || (resolvedType === "binary" ? "simple" : resolvedType === "numeric" ? "quantity" : "time"),
         unit,
         goal: typeof raw.goal === "number" ? raw.goal : null,
-        frequency: raw.frequency === "weekly" ? "weekly" : "daily",
+        frequency,
+        frequency_label: frequency === "custom" ? String(raw.frequency_label || "").trim() : "",
         increments,
         primary_action: primaryAction,
         optional_actions: optionalActions,
@@ -1237,7 +1878,36 @@
       return theme === "dark" ? "dark" : "light";
     }
 
-    function PromptCard({ input, setInput, onSubmit, loading, onManualToggle, manualOpen, statusText, inputRef }) {
+    const FREQUENCY_OPTIONS = [
+      { value: "daily", label: "Daily" },
+      { value: "weekly", label: "Weekly" },
+      { value: "monthly", label: "Monthly" },
+      { value: "yearly", label: "Yearly" },
+      { value: "custom", label: "Custom" },
+    ];
+
+    function getFrequencyLabel(tracker) {
+      if (tracker.frequency === "custom") return tracker.frequency_label || "custom";
+      const frequency = tracker.frequency || "daily";
+      return frequency.charAt(0).toUpperCase() + frequency.slice(1);
+    }
+
+    function PromptCard({
+      input,
+      setInput,
+      onSubmit,
+      loading,
+      onManualToggle,
+      manualOpen,
+      statusText,
+      inputRef,
+      frequencyPreset,
+      setFrequencyPreset,
+      customFrequency,
+      setCustomFrequency,
+    }) {
+      const canSubmit = input.trim() && (frequencyPreset !== "custom" || customFrequency.trim());
+
       return (
         <section className="prompt-card">
           <textarea
@@ -1253,16 +1923,46 @@
               }
             }}
           />
+          <div className="prompt-frequency">
+            <div className="frequency-label">Cadence for this prompt</div>
+            <div className="frequency-pills">
+              {FREQUENCY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`frequency-pill${frequencyPreset === option.value ? " active" : ""}`}
+                  onClick={() => setFrequencyPreset(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {frequencyPreset === "custom" ? (
+              <input
+                className="inline-input custom-frequency-input"
+                placeholder="For example: weekdays, every 10 days, or twice a month"
+                value={customFrequency}
+                onChange={(e) => setCustomFrequency(e.target.value)}
+              />
+            ) : null}
+          </div>
           <div className="prompt-row">
             <div className="prompt-actions">
-              <button type="button" className="primary-btn" onClick={onSubmit} disabled={loading || !input.trim()}>
+              <button type="button" className="primary-btn" data-tip="Generate or update trackers from the current prompt." onClick={onSubmit} disabled={loading || !canSubmit}>
                 {loading ? "Thinking..." : "Create"}
               </button>
-              <button type="button" className="ghost-btn" onClick={onManualToggle}>
+              <button type="button" className="ghost-btn" data-tip="Switch to a manual tracker setup instead of prompting." onClick={onManualToggle}>
                 {manualOpen ? "Close manual" : "Create manually"}
               </button>
             </div>
-            <div className="status">{statusText}</div>
+            <div className="prompt-status">
+              <div className="status">{statusText}</div>
+              <div className="status">
+                {frequencyPreset === "custom"
+                  ? (customFrequency.trim() || "Add a custom cadence to continue.")
+                  : `Applying a ${frequencyPreset} cadence.`}
+              </div>
+            </div>
           </div>
         </section>
       );
@@ -1294,7 +1994,7 @@
       );
     }
 
-    function LoginScreen({
+    function LandingScreen({
       authMode,
       setAuthMode,
       authForm,
@@ -1303,80 +2003,283 @@
       authLoading,
       authError,
     }) {
+      const authRef = useRef(null);
+      const emailRef = useRef(null);
+      const typeLineWrapRefs = useRef([]);
+
+      useLayoutEffect(() => {
+        const lockTypeWidths = () => {
+          typeLineWrapRefs.current.forEach((wrap) => {
+            if (!wrap) return;
+            const line = wrap.querySelector(".type-line");
+            if (!line) return;
+            const fullWidth = line.scrollWidth;
+            wrap.style.width = `${fullWidth}px`;
+          });
+        };
+
+        lockTypeWidths();
+        window.addEventListener("resize", lockTypeWidths);
+        return () => window.removeEventListener("resize", lockTypeWidths);
+      }, []);
+
+      const scrollToAuth = () => {
+        authRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => emailRef.current?.focus(), 180);
+      };
+
+      const scrollToDemo = () => {
+        document.getElementById("product-demo")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+
       return (
-        <div className="auth-shell">
-          <section className="auth-card">
+        <div className="landing-shell">
+          <nav className="landing-nav">
             <div className="brand">
               <div className="brand-title">Declo</div>
-              <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+              <div className="brand-copy">Build your own tracking system, just by describing it.</div>
             </div>
-            <div className="auth-title">{authMode === "signup" ? "Create your account." : "Welcome back."}</div>
-            <div className="auth-copy">
-              {authMode === "signup"
-                ? "A basic email and password is enough to start using Declo."
-                : "Log in to return to your workspace."}
+            <div className="landing-nav-links">
+              <button type="button" className="nav-glass-link" data-tip="Jump to the generated workspace preview." onClick={scrollToDemo}>Product demo</button>
+              <button type="button" className="nav-glass-link" data-tip="Go to the account form and start building your setup." onClick={scrollToAuth}>Get started</button>
             </div>
-            <div className="choice-row">
-              {[
-                ["signup", "Sign up"],
-                ["login", "Log in"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`choice-pill${authMode === value ? " active" : ""}`}
-                  onClick={() => setAuthMode(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="auth-form">
-              {authMode === "signup" ? (
-                <input
-                  className="auth-input"
-                  placeholder="Name"
-                  value={authForm.name}
-                  onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                  autoFocus
-                />
-              ) : null}
-              <input
-                className="auth-input"
-                placeholder="Email"
-                type="email"
-                value={authForm.email}
-                onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-              />
-              <input
-                className="auth-input"
-                placeholder="Password"
-                type="password"
-                value={authForm.password}
-                onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    onAuth();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={onAuth}
-                disabled={
-                  authLoading ||
-                  !authForm.email.trim() ||
-                  !authForm.password.trim() ||
-                  (authMode === "signup" && !authForm.name.trim())
-                }
-              >
-                {authLoading ? "Working..." : authMode === "signup" ? "Create account" : "Log in"}
-              </button>
-              {authError ? <div className="status">{authError}</div> : null}
-            </div>
-          </section>
+          </nav>
+
+          <div className="landing-story">
+            <section className="hero-panel">
+              <div className="hero-kicker">System Generator For Personal Tracking</div>
+              <h1 className="hero-title" aria-label="Stop forcing yourself into habit templates. Build a system that fits you.">
+                <span className="type-line-wrap" ref={(node) => { typeLineWrapRefs.current[0] = node; }}><span className="type-line line-1">Stop forcing yourself</span></span>
+                <span className="type-line-wrap" ref={(node) => { typeLineWrapRefs.current[1] = node; }}><span className="type-line line-2">into habit templates.</span></span>
+                <span className="type-line-wrap" ref={(node) => { typeLineWrapRefs.current[2] = node; }}><span className="type-line line-3">Build a system that fits you.</span></span>
+              </h1>
+              <div className="hero-copy">
+                Most trackers give you pre-built templates.<br />
+                Declo builds your system from scratch, based on what you actually want to track.
+              </div>
+              <div className="hero-support">
+                Type one prompt. Get a complete tracking setup: habits, metrics, and workflows.
+              </div>
+              <div className="hero-actions">
+                <button type="button" className="primary-btn" data-tip="Start with a prompt and turn it into a full tracking system." onClick={scrollToAuth}>Build my system</button>
+                <button type="button" className="ghost-btn" data-tip="See how one sentence becomes a working Declo workspace." onClick={scrollToDemo}>See demo</button>
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-eyebrow">Contrast</div>
+                <h2 className="landing-heading">Most tools start with templates.<br />Declo starts with you.</h2>
+              </div>
+              <div className="contrast-grid">
+                <div className="contrast-card muted">
+                  <div className="contrast-label">Templates (existing tools)</div>
+                  <ul className="contrast-list">
+                    <li>Fixed habit lists</li>
+                    <li>One-size-fits-all structure</li>
+                    <li>Limited flexibility</li>
+                    <li>You adapt to the tool</li>
+                  </ul>
+                </div>
+                <div className="contrast-card highlight">
+                  <div className="contrast-label">Declo</div>
+                  <ul className="contrast-list">
+                    <li>Built from your own prompt</li>
+                    <li>Fully flexible structure</li>
+                    <li>Multiple tracker types</li>
+                    <li>The system adapts to you</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-eyebrow">How It Works</div>
+                <h2 className="landing-heading">From one sentence to a working system.</h2>
+              </div>
+              <div className="steps-grid">
+                <div className="step-card">
+                  <div className="step-number">Step 1</div>
+                  <div className="step-title">Describe what you want</div>
+                  <div className="landing-subtext">"I want to track workouts, water, and deep work"</div>
+                </div>
+                <div className="step-card">
+                  <div className="step-number">Step 2</div>
+                  <div className="step-title">Declo builds your system</div>
+                  <div className="landing-subtext">Daily habits, weekly goals, and timed sessions, automatically structured.</div>
+                </div>
+                <div className="step-card">
+                  <div className="step-number">Step 3</div>
+                  <div className="step-title">Start tracking immediately</div>
+                  <div className="landing-subtext">No setup. No templates. Just execution.</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-eyebrow">Capabilities</div>
+                <h2 className="landing-heading">No templates. No setup.<br /> Just your system, built instantly.</h2>
+              </div>
+              <div className="capability-grid">
+                <div className="feature-card">
+                  <strong>From idea to structured system</strong>
+                  <span>No configuration. Just describe what you want.</span>
+                </div>
+                <div className="feature-card">
+                  <strong>Multiple tracking types</strong>
+                  <span>Binary, numeric, and time-based, all in one workspace.</span>
+                </div>
+                <div className="feature-card">
+                  <strong>Works like real life</strong>
+                  <span>Daily habits, weekly goals, and deep work can live together.</span>
+                </div>
+                <div className="feature-card">
+                  <strong>Built to evolve</strong>
+                  <span>Edit, expand, and refine your system anytime.</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="landing-section" id="product-demo">
+              <div className="landing-section-head left">
+                <div className="landing-eyebrow">Demo</div>
+                <h2 className="landing-heading">One prompt. Full system.</h2>
+                <div className="landing-subtext">This entire workspace was generated from a single sentence.</div>
+              </div>
+              <section className="demo-panel">
+                <div className="demo-head">
+                  <div className="demo-label">Workspace preview</div>
+                  <div className="demo-badge">Generated from prompt</div>
+                </div>
+                <div className="demo-browser">
+                  <div className="demo-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <div className="demo-canvas">
+                    <div className="demo-banner">
+                      <strong>Track workouts, water, and deep work.</strong>
+                      <span>Declo turns the request into a usable tracking system instead of a blank template.</span>
+                    </div>
+                    <div className="demo-trackers">
+                      <div className="demo-tracker">
+                        <div className="demo-pill">Daily</div>
+                        <strong>Water intake</strong>
+                        <div className="demo-progress"><span style={{ width: "72%" }} /></div>
+                      </div>
+                      <div className="demo-tracker">
+                        <div className="demo-pill">Weekly</div>
+                        <strong>Strength training</strong>
+                        <div className="demo-progress"><span style={{ width: "48%" }} /></div>
+                      </div>
+                      <div className="demo-tracker">
+                        <div className="demo-pill">Timed</div>
+                        <strong>Running</strong>
+                        <div className="demo-progress"><span style={{ width: "61%" }} /></div>
+                      </div>
+                      <div className="demo-tracker">
+                        <div className="demo-pill">Custom</div>
+                        <strong>Deep work</strong>
+                        <div className="demo-progress"><span style={{ width: "84%" }} /></div>
+                      </div>
+                    </div>
+                    <div className="demo-placeholder">
+                      Keep this area ready for a recorded product walkthrough or interactive embed once you have a polished demo asset.
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <section className="belief-panel">
+              <h2 className="belief-title">People don’t fail habits. <br />They fail systems that don’t fit them.</h2>
+              <div className="belief-copy">
+                Declo builds the system first.<br />
+                So you can focus on execution.
+              </div>
+            </section>
+
+            <section className="cta-panel" ref={authRef}>
+              <div className="landing-eyebrow">Get Started</div>
+              <h2 className="cta-title">Build a system that actually works for you.</h2>
+              <section className="auth-card landing-auth-card">
+                <div className="brand">
+                  <div className="brand-title">Start building with Declo</div>
+                  <div className="brand-copy">Open your workspace and generate a system from your own prompt.</div>
+                </div>
+                <div className="auth-title">{authMode === "signup" ? "Create your account." : "Welcome back."}</div>
+                <div className="auth-copy">
+                  {authMode === "signup"
+                    ? "Create an account to start building trackers from natural language."
+                    : "Log in to return to your saved workspace and continue tracking."}
+                </div>
+                <div className="choice-row">
+                  {[
+                    ["signup", "Sign up"],
+                    ["login", "Log in"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`choice-pill${authMode === value ? " active" : ""}`}
+                      onClick={() => setAuthMode(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="auth-form">
+                  {authMode === "signup" ? (
+                    <input
+                      className="auth-input"
+                      placeholder="Name"
+                      value={authForm.name}
+                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                    />
+                  ) : null}
+                  <input
+                    ref={emailRef}
+                    className="auth-input"
+                    placeholder="Email"
+                    type="email"
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  />
+                  <input
+                    className="auth-input"
+                    placeholder="Password"
+                    type="password"
+                    value={authForm.password}
+                    onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        onAuth();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    data-tip={authMode === "signup" ? "Create your account and open a new Declo workspace." : "Log back into your saved Declo workspace."}
+                    onClick={onAuth}
+                    disabled={
+                      authLoading ||
+                      !authForm.email.trim() ||
+                      !authForm.password.trim() ||
+                      (authMode === "signup" && !authForm.name.trim())
+                    }
+                  >
+                    {authLoading ? "Working..." : authMode === "signup" ? "Create account" : "Log in"}
+                  </button>
+                  {authError ? <div className="status">{authError}</div> : null}
+                </div>
+              </section>
+            </section>
+          </div>
         </div>
       );
     }
@@ -1472,6 +2375,23 @@
       );
     }
 
+    function SidebarSection({ title, summary, defaultOpen = true, children }) {
+      const [open, setOpen] = useState(defaultOpen);
+
+      return (
+        <section className="side-card">
+          <button type="button" className="side-toggle" onClick={() => setOpen((value) => !value)}>
+            <div className="side-toggle-copy">
+              <div className="side-title">{title}</div>
+              <div className="side-summary">{summary}</div>
+            </div>
+            <span className="chevron">{open ? "▾" : "▸"}</span>
+          </button>
+          {open ? <div className="side-card-body">{children}</div> : null}
+        </section>
+      );
+    }
+
     function Sidebar({ trackers, data, onJumpToTracker, onOpenDay }) {
       const today = todayKey();
       const completed = trackers.reduce((acc, tracker) => {
@@ -1492,14 +2412,12 @@
 
       return (
         <aside className="sidebar">
-          <section className="side-card">
-            <div className="side-title">Today</div>
+          <SidebarSection title="Today" summary="Daily snapshot" defaultOpen={true}>
             <div className="snapshot">{completed} / {trackers.length || 0}</div>
             <div className="snapshot-copy">trackers completed</div>
-          </section>
+          </SidebarSection>
 
-          <section className="side-card">
-            <div className="side-title">Daily progress</div>
+          <SidebarSection title="Daily progress" summary="Last 12 weeks" defaultOpen={true}>
             <div className="heatmap">
               {dates.map((date) => {
                 const key = date.toISOString().slice(0, 10);
@@ -1519,10 +2437,9 @@
                 );
               })}
             </div>
-          </section>
+          </SidebarSection>
 
-          <section className="side-card">
-            <div className="side-title">Weekly momentum</div>
+          <SidebarSection title="Weekly momentum" summary="Last 7 days" defaultOpen={true}>
             <div className="bars">
               {weekDates.map((date) => {
                 const key = date.toISOString().slice(0, 10);
@@ -1536,10 +2453,9 @@
                 );
               })}
             </div>
-          </section>
+          </SidebarSection>
 
-          <section className="side-card">
-            <div className="side-title">Trackers</div>
+          <SidebarSection title="Trackers" summary={`${trackers.length || 0} in your workspace`} defaultOpen={true}>
             <div className="tracker-list">
               {trackers.map((tracker) => (
                 <button
@@ -1551,7 +2467,7 @@
                 </button>
               ))}
             </div>
-          </section>
+          </SidebarSection>
         </aside>
       );
     }
@@ -1566,7 +2482,7 @@
             </button>
             <div className="metric">
               <strong>{entry.done ? "Done today" : "Not yet"}</strong><br />
-              {tracker.frequency}{streak > 0 ? ` • ${streak} day streak` : ""}
+              {getFrequencyLabel(tracker)}{streak > 0 ? ` • ${streak} day streak` : ""}
             </div>
           </div>
         </div>
@@ -1605,7 +2521,7 @@
       );
     }
 
-    function SessionCard({ entry, onToggle }) {
+    function SessionCard({ entry, onToggle, onStartAnother }) {
       const [now, setNow] = useState(Date.now());
       useEffect(() => {
         if (!entry.running) return undefined;
@@ -1615,6 +2531,7 @@
 
       const elapsed = entry.running && entry.startedAt ? Math.floor((now - entry.startedAt) / 1000) : 0;
       const total = (entry.totalSeconds || 0) + elapsed;
+      const sessionCount = (entry.logs || []).filter((log) => log.kind === "session").length;
 
       return (
         <div className="primary-zone">
@@ -1623,9 +2540,15 @@
             <button className={`session-btn${entry.running ? " running" : ""}`} onClick={onToggle}>
               {entry.running ? "Stop" : "Start"}
             </button>
+            {!entry.running && total > 0 ? (
+              <button className="ghost-btn" onClick={onStartAnother}>Start another run</button>
+            ) : null}
             {entry.running ? <div className="session-pulse" /> : null}
           </div>
-          <div className="metric"><strong>{formatShortDuration(total)}</strong> today</div>
+          <div className="metric">
+            <strong>{formatShortDuration(total)}</strong> today
+            {sessionCount ? ` • ${sessionCount} session${sessionCount === 1 ? "" : "s"} logged` : ""}
+          </div>
         </div>
       );
     }
@@ -1640,6 +2563,7 @@
       onAddNumeric,
       onSubtractNumeric,
       onToggleSession,
+      onStartAnotherSession,
       onAddSessionMinutes,
       onToggleCustomize,
       expanded,
@@ -1688,7 +2612,7 @@
                 <button className="card-title" onClick={() => setEditingName(true)}>{tracker.name}</button>
               )}
               <div className="meta-pill">{tracker.category}</div>
-              <div className="card-sub">{tracker.frequency} • {tracker.primary_action}</div>
+              <div className="card-sub">{getFrequencyLabel(tracker)} • {tracker.primary_action}</div>
             </div>
             <div className="card-actions">
               <button className="drag-handle" title="Drag to reorder">⋮⋮</button>
@@ -1703,7 +2627,7 @@
             <NumericCard tracker={tracker} entry={entry} onAdd={onAddNumeric} onSubtract={onSubtractNumeric} />
           ) : null}
           {tracker.type === "session" ? (
-            <SessionCard entry={entry} onToggle={onToggleSession} />
+            <SessionCard entry={entry} onToggle={onToggleSession} onStartAnother={onStartAnotherSession} />
           ) : null}
 
           <div className="secondary-row">
@@ -1762,8 +2686,22 @@
                   >
                     <option value="daily">daily</option>
                     <option value="weekly">weekly</option>
+                    <option value="monthly">monthly</option>
+                    <option value="yearly">yearly</option>
+                    <option value="custom">custom</option>
                   </select>
                 </label>
+                {tracker.frequency === "custom" ? (
+                  <label className="detail-label">
+                    Custom cadence
+                    <input
+                      className="inline-input"
+                      value={tracker.frequency_label || ""}
+                      onChange={(e) => onCustomize({ frequency_label: e.target.value })}
+                      placeholder="weekdays, alternate weeks, etc."
+                    />
+                  </label>
+                ) : null}
                 {tracker.type !== "binary" ? (
                   <label className="detail-label">
                     Goal
@@ -1908,14 +2846,27 @@
       const [undoState, setUndoState] = useState(null);
       const [redoState, setRedoState] = useState(null);
       const [profileOpen, setProfileOpen] = useState(false);
+      const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
       const [preferencesOpen, setPreferencesOpen] = useState(false);
       const [dayModal, setDayModal] = useState(null);
       const [draggingId, setDraggingId] = useState(null);
       const [drawerOpen, setDrawerOpen] = useState(false);
       const [composerOpen, setComposerOpen] = useState(false);
+      const [frequencyPreset, setFrequencyPreset] = useState("daily");
+      const [customFrequency, setCustomFrequency] = useState("");
       const inputRef = useRef(null);
       const cardRefs = useRef({});
       const parseControllerRef = useRef(null);
+
+      const closeFloatingUi = (except = []) => {
+        if (!except.includes("profile")) setProfileOpen(false);
+        if (!except.includes("delete")) setDeleteMenuOpen(false);
+        if (!except.includes("preferences")) setPreferencesOpen(false);
+        if (!except.includes("day")) setDayModal(null);
+        if (!except.includes("drawer")) setDrawerOpen(false);
+        if (!except.includes("composer")) setComposerOpen(false);
+        if (!except.includes("manual")) setManualOpen(false);
+      };
 
       useEffect(() => {
         if (bootError) {
@@ -1995,12 +2946,30 @@
           const tag = document.activeElement?.tagName;
           if (e.key === "+" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
             e.preventDefault();
+            closeFloatingUi(["composer"]);
+            setComposerOpen(true);
             inputRef.current?.focus();
           }
+          if (e.key === "Escape") closeFloatingUi();
         };
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
       }, []);
+
+      useEffect(() => {
+        const handler = (event) => {
+          if (!event.target.closest(".profile-wrap")) {
+            setProfileOpen(false);
+            setDeleteMenuOpen(false);
+          }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+      }, []);
+
+      useEffect(() => {
+        if (!profileOpen) setDeleteMenuOpen(false);
+      }, [profileOpen]);
 
       const persist = async (next, undoLabel = "") => {
         setUndoState({ previous: state, label: undoLabel });
@@ -2087,21 +3056,26 @@
       const today = todayKey();
 
       const handleSubmit = async () => {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || loading || (frequencyPreset === "custom" && !customFrequency.trim())) return;
         const controller = new AbortController();
         parseControllerRef.current = controller;
         setLoading(true);
         setError("");
         try {
-          const trackers = await parseTrackers(input.trim(), state.trackers, controller.signal);
+          const selectedFrequencyLabel = frequencyPreset === "custom" ? customFrequency.trim() : frequencyPreset;
+          const promptInput = `${input.trim()}\nCadence: ${selectedFrequencyLabel}.`;
+          const trackers = (await parseTrackers(promptInput, state.trackers, controller.signal)).map((tracker) => normalizeTracker({
+            ...tracker,
+            frequency: frequencyPreset,
+            frequency_label: frequencyPreset === "custom" ? customFrequency.trim() : "",
+          }));
           const currentData = state.data || {};
           const trackerIds = new Set(trackers.map((tracker) => tracker.id));
           const prunedData = Object.fromEntries(Object.entries(currentData).filter(([trackerId]) => trackerIds.has(trackerId)));
           const next = { ...state, trackers, data: prunedData };
           await persist(next, "Prompt applied");
           setInput("");
-          setComposerOpen(false);
-          setManualOpen(false);
+          closeFloatingUi();
         } catch (e) {
           if (e.name === "AbortError") {
             setError("Thinking stopped.");
@@ -2124,14 +3098,14 @@
           logging_mode: manual.type === "binary" ? "simple" : manual.type === "numeric" ? "quantity" : "time",
           unit: manual.type === "numeric" ? "" : null,
           goal: null,
-          frequency: "daily",
+          frequency: frequencyPreset,
+          frequency_label: frequencyPreset === "custom" ? customFrequency.trim() : "",
           increments: manual.type === "numeric" ? [1] : null,
         });
         const next = { ...state, trackers: [...state.trackers, tracker] };
         await persist(next, "Manual tracker added");
         setManual({ name: "", type: "binary" });
-        setManualOpen(false);
-        setComposerOpen(false);
+        closeFloatingUi();
       };
 
       const mutateTrackerData = async (trackerId, updater, undoLabel) => {
@@ -2218,6 +3192,15 @@
         `${tracker.name} logged`
       );
 
+      const startAnotherSession = (tracker) => mutateTrackerData(
+        tracker.id,
+        (prev) => {
+          if (prev.running) return prev;
+          return { ...prev, running: true, startedAt: Date.now() };
+        },
+        `${tracker.name} session started`
+      );
+
       const removeTracker = async (trackerId) => {
         const next = {
           ...state,
@@ -2276,7 +3259,7 @@
         };
         setState(next);
         await saveState(next);
-        setProfileOpen(false);
+        closeFloatingUi();
       };
 
       const logout = async () => {
@@ -2288,9 +3271,7 @@
         setProfileName("");
         setProfileEmail("");
         setAuthForm((current) => ({ ...current, password: "" }));
-        setProfileOpen(false);
-        setDrawerOpen(false);
-        setPreferencesOpen(false);
+        closeFloatingUi();
         setState({ trackers: [], data: {}, meta: {} });
         setReady(false);
       };
@@ -2305,7 +3286,7 @@
         anchor.click();
         anchor.remove();
         URL.revokeObjectURL(url);
-        setProfileOpen(false);
+        closeFloatingUi();
       };
 
       const deleteAccount = async () => {
@@ -2316,8 +3297,7 @@
         }
         clearCachedUser();
         setCurrentUserId("");
-        setPreferencesOpen(false);
-        setProfileOpen(false);
+        closeFloatingUi();
         setProfileName("");
         setProfileEmail("");
         setAuthForm({ name: "", email: "", password: "" });
@@ -2326,12 +3306,13 @@
       };
 
       const openTutorial = () => {
+        closeFloatingUi();
         window.open("https://www.youtube.com/results?search_query=tracker+app+tutorial", "_blank", "noopener,noreferrer");
       };
 
       const jumpToTracker = (trackerId) => {
         cardRefs.current[trackerId]?.scrollIntoView({ behavior: "smooth", block: "center" });
-        setDrawerOpen(false);
+        closeFloatingUi();
       };
 
       const dayLogs = useMemo(() => {
@@ -2370,7 +3351,7 @@
 
       if (!currentUserId) {
         return (
-          <LoginScreen
+          <LandingScreen
             authMode={authMode}
             setAuthMode={setAuthMode}
             authForm={authForm}
@@ -2384,26 +3365,36 @@
 
       return (
         <div className="app-shell">
-          <div className={`drawer-backdrop${drawerOpen ? " open" : ""}`} onClick={() => setDrawerOpen(false)} />
+          <div className={`drawer-backdrop${drawerOpen ? " open" : ""}`} onClick={() => closeFloatingUi()} />
           <aside className={`drawer${drawerOpen ? " open" : ""}`}>
             <div className="drawer-head">
               <div className="drawer-title">Overview</div>
-              <button type="button" className="drawer-close" onClick={() => setDrawerOpen(false)}>×</button>
+              <button type="button" className="drawer-close" data-tip="Close the overview sidebar." onClick={() => closeFloatingUi()}>×</button>
             </div>
             <Sidebar
               trackers={state.trackers}
               data={state.data}
               onJumpToTracker={jumpToTracker}
               onOpenDay={(day) => {
+                closeFloatingUi(["day"]);
                 setDayModal(day);
-                setDrawerOpen(false);
               }}
             />
           </aside>
 
           <div className="topbar">
             <div className="topbar-left">
-              <button type="button" className="menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open sidebar">
+              <button
+                type="button"
+                className="menu-btn"
+                data-tip="Open the overview sidebar with progress and tracker shortcuts."
+                onClick={() => {
+                  const nextOpen = !drawerOpen;
+                  closeFloatingUi(nextOpen ? ["drawer"] : []);
+                  setDrawerOpen(nextOpen);
+                }}
+                aria-label="Open sidebar"
+              >
                 <div className="menu-lines">
                   <span />
                   <span />
@@ -2424,6 +3415,7 @@
                   onClick={undoLast}
                   aria-label="Undo"
                   title="Undo"
+                  data-tip="Reverse the last saved workspace change."
                   disabled={!undoState?.previous}
                 >
                   ↶
@@ -2436,6 +3428,7 @@
                   onClick={redoLast}
                   aria-label="Redo"
                   title="Redo"
+                  data-tip="Reapply the last action you undid."
                   disabled={!redoState?.next}
                 >
                   ↷
@@ -2448,44 +3441,77 @@
                   onClick={stopThinking}
                   aria-label="Stop thinking"
                   title="Stop thinking"
+                  data-tip="Cancel the current prompt generation."
                   disabled={!loading}
                 >
                   ■
                 </button>
-                <div className="hover-note">stop thinking</div>
+                <div className="hover-note">cancel active prompt</div>
               </div>
               <div className="tutorial-wrap">
-                <button type="button" className="icon-btn tutorial-btn" onClick={openTutorial} aria-label="Open YouTube tutorial">
+                <button type="button" className="icon-btn tutorial-btn" data-tip="Open a quick external tutorial search for tracker ideas." onClick={openTutorial} aria-label="Open YouTube tutorial">
                   ▶
                 </button>
-                <div className="hover-note">youtube tutorial</div>
+                <div className="hover-note">open tutorial search</div>
               </div>
               <div className="profile-wrap">
-                <button type="button" className="profile-btn" onClick={() => setProfileOpen((open) => !open)}>
+                <button
+                  type="button"
+                  className="profile-btn"
+                  data-tip="Open account actions and workspace controls."
+                  onClick={() => {
+                    const nextOpen = !profileOpen;
+                    closeFloatingUi(nextOpen ? ["profile"] : []);
+                    setProfileOpen(nextOpen);
+                  }}
+                >
                   {getInitials(profileName)}
                 </button>
                 {profileOpen ? (
                   <div className="profile-menu">
-                    <button type="button" className="profile-item" onClick={() => { setPreferencesOpen(true); setProfileOpen(false); }}>Preferences</button>
-                    <button type="button" className="profile-item soft" onClick={exportData}>Export data</button>
-                    <button type="button" className="profile-item danger" onClick={deleteAccount}>Delete cloud data</button>
-                    <button type="button" className="profile-item" onClick={logout}>Logout</button>
-                    <button type="button" className="profile-item danger" onClick={resetData}>Reset data</button>
+                    <button
+                      type="button"
+                      className="profile-item"
+                      data-tip="Adjust theme, motion, and reminder preferences."
+                      onClick={() => { closeFloatingUi(["preferences"]); setPreferencesOpen(true); }}
+                    >
+                      Preferences
+                    </button>
+                    <button type="button" className="profile-item soft" data-tip="Download your current Declo workspace as JSON." onClick={exportData}>Export data</button>
+                    <button type="button" className="profile-item" data-tip="Sign out of this device without deleting saved data." onClick={logout}>Logout</button>
+                    <div className="profile-divider" />
+                    <button
+                      type="button"
+                      className="profile-item danger"
+                      data-tip="Choose whether to wipe local tracker data or remove cloud-saved account data."
+                      onClick={() => setDeleteMenuOpen((open) => !open)}
+                    >
+                      Delete…
+                    </button>
+                    {deleteMenuOpen ? (
+                      <div className="profile-submenu">
+                        <button type="button" className="profile-item danger" data-tip="Remove only the tracker data currently stored in this workspace." onClick={resetData}>Reset local data</button>
+                        <button type="button" className="profile-item danger" data-tip="Delete your saved cloud workspace and sign out." onClick={deleteAccount}>Delete cloud data</button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
             </div>
           </div>
 
-          <main className="main">
+          <main className={`main${composerOpen ? " composer-open" : ""}`}>
               {state.trackers.length > 0 ? (
-                <section className="utility-row">
+                <section className={`utility-row${composerOpen ? " composer-active" : ""}`}>
                   <div className="utility-actions">
                     <button
                       type="button"
                       className="composer-btn"
+                      data-tip="Open the prompt composer and create or update trackers."
                       onClick={() => {
-                        setComposerOpen((open) => !open);
+                        const nextOpen = !composerOpen;
+                        closeFloatingUi(nextOpen ? ["composer"] : []);
+                        setComposerOpen(nextOpen);
                         setManualOpen(false);
                         setTimeout(() => inputRef.current?.focus(), 0);
                       }}
@@ -2504,6 +3530,7 @@
                   onSubmit={handleSubmit}
                   loading={loading}
                   onManualToggle={() => {
+                    closeFloatingUi(["composer", "manual"]);
                     setComposerOpen(true);
                     setManualOpen((open) => !open);
                   }}
@@ -2512,6 +3539,10 @@
                     ? "Set up your workspace in one prompt."
                     : "Update what Declo tracks without opening settings.")}
                   inputRef={inputRef}
+                  frequencyPreset={frequencyPreset}
+                  setFrequencyPreset={setFrequencyPreset}
+                  customFrequency={customFrequency}
+                  setCustomFrequency={setCustomFrequency}
                 />
               ) : null}
 
@@ -2542,6 +3573,7 @@
                       onAddNumeric={(amount) => addNumeric(tracker, amount)}
                       onSubtractNumeric={(amount) => subtractNumeric(tracker, amount)}
                       onToggleSession={() => toggleSession(tracker)}
+                      onStartAnotherSession={() => startAnotherSession(tracker)}
                       onAddSessionMinutes={(minutes) => addSessionMinutes(tracker, minutes)}
                       onToggleCustomize={() => setExpanded((prev) => ({ ...prev, [tracker.id]: !prev[tracker.id] }))}
                       expanded={Boolean(expanded[tracker.id])}
@@ -2564,7 +3596,7 @@
             <PreferencesModal
               preferences={state.meta?.preferences || getDefaultPreferences()}
               onUpdate={updatePreferences}
-              onClose={() => setPreferencesOpen(false)}
+              onClose={() => closeFloatingUi()}
               onExport={exportData}
               onDeleteAccount={deleteAccount}
             />
