@@ -364,26 +364,6 @@
       .profile-wrap {
         position: relative;
       }
-      .hover-note {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(51, 40, 30, 0.92);
-        color: #fff7ee;
-        font-size: 0.8rem;
-        opacity: 0;
-        pointer-events: none;
-        transform: translateY(-4px);
-        transition: opacity 0.14s ease, transform 0.14s ease;
-        white-space: nowrap;
-      }
-      .tutorial-wrap:hover .hover-note,
-      .tutorial-wrap:focus-within .hover-note {
-        opacity: 1;
-        transform: translateY(0);
-      }
       .profile-btn {
         border: 0;
         border-radius: 999px;
@@ -3414,7 +3394,6 @@
                   className="icon-btn"
                   onClick={undoLast}
                   aria-label="Undo"
-                  title="Undo"
                   data-tip="Reverse the last saved workspace change."
                   disabled={!undoState?.previous}
                 >
@@ -3427,7 +3406,6 @@
                   className="icon-btn"
                   onClick={redoLast}
                   aria-label="Redo"
-                  title="Redo"
                   data-tip="Reapply the last action you undid."
                   disabled={!redoState?.next}
                 >
@@ -3440,25 +3418,22 @@
                   className="icon-btn"
                   onClick={stopThinking}
                   aria-label="Stop thinking"
-                  title="Stop thinking"
                   data-tip="Cancel the current prompt generation."
                   disabled={!loading}
                 >
                   ■
                 </button>
-                <div className="hover-note">cancel active prompt</div>
               </div>
               <div className="tutorial-wrap">
                 <button type="button" className="icon-btn tutorial-btn" data-tip="Open a quick external tutorial search for tracker ideas." onClick={openTutorial} aria-label="Open YouTube tutorial">
                   ▶
                 </button>
-                <div className="hover-note">open tutorial search</div>
               </div>
               <div className="profile-wrap">
                 <button
                   type="button"
                   className="profile-btn"
-                  data-tip="Open account actions and workspace controls."
+                  data-tip={profileOpen ? undefined : "Open account actions and workspace controls."}
                   onClick={() => {
                     const nextOpen = !profileOpen;
                     closeFloatingUi(nextOpen ? ["profile"] : []);
