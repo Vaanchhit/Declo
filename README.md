@@ -61,8 +61,8 @@ The tracker adjusts to you.
 ## Tech Stack
 
 - Frontend: HTML, CSS, JavaScript  
-- Backend: Vercel serverless Python functions  
-- Local dev server: Python standard library (`tracker.py`)  
+- Backend: Vercel Serverless Functions (Node.js)  
+- Local dev server: Vercel CLI (`vercel dev`)  
 - AI: Gemini 2.5 Flash (Primary), Gemini 1.5 Pro Latest (Fallback)  
 - Database: Supabase  
 
@@ -73,8 +73,8 @@ The tracker adjusts to you.
 ```bash
 git clone https://github.com/Vaanchhit/Declo.git
 cd Declo
-pip install -r requirements.txt
-python tracker.py
+npm i -g vercel
+vercel dev
 ```
 
 This starts a lightweight local server on `http://127.0.0.1:5000` that mirrors the Vercel deployment route shape:
