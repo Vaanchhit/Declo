@@ -61,7 +61,8 @@ The tracker adjusts to you.
 ## Tech Stack
 
 - Frontend: HTML, CSS, JavaScript  
-- Backend: Flask (Python)  
+- Backend: Vercel serverless Python functions  
+- Local dev server: Python standard library (`tracker.py`)  
 - AI: Gemini 2.5 Flash (Primary), Gemini 1.5 Pro Latest (Fallback)  
 - Database: Supabase  
 
@@ -74,3 +75,12 @@ git clone https://github.com/Vaanchhit/Declo.git
 cd Declo
 pip install -r requirements.txt
 python tracker.py
+```
+
+This starts a lightweight local server on `http://127.0.0.1:5000` that mirrors the Vercel deployment route shape:
+
+- `/` serves `index.html`
+- `/api/config`
+- `/api/parse`
+- `/api/state`
+- `/api/account`
