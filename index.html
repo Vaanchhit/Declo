@@ -540,7 +540,7 @@
         margin: 0 auto;
         display: grid;
         gap: 0.08em;
-        font-size: clamp(2rem, 4vw, 3.4rem);
+        font-size: clamp(1.8rem, 5vw, 3.2rem);
         line-height: 1.1;
         letter-spacing: -0.045em;
         font-weight: 600;
@@ -1127,6 +1127,28 @@
         flex: 1;
       }
 
+      .quick-prompts {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .quick-prompt-btn {
+        border: 1px solid var(--line);
+        background: var(--surface-quiet);
+        color: var(--muted);
+        border-radius: 12px;
+        cursor: pointer;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+      }
+      .quick-prompt-btn:hover {
+        background: rgba(138, 106, 75, 0.08);
+        color: var(--text);
+        transform: translateY(-1px);
+      }
       .cards {
         display: grid;
         gap: 14px;
@@ -1535,11 +1557,6 @@
           padding: 22px;
         }
         .hero-title {
-          max-width: none;
-          font-size: clamp(2.2rem, 11vw, 3.2rem);
-        }
-        .detail-grid {
-          grid-template-columns: 1fr;
         }
         .landing-story {
           gap: 56px;
@@ -1549,6 +1566,14 @@
         .hero-title {
           font-size: clamp(1.75rem, 7vw, 2.2rem);
           line-height: 1.1;
+        }
+        .hero-kicker,
+        .hero-support,
+        .topbar .brand-copy {
+          display: none;
+        }
+        .detail-grid {
+          grid-template-columns: 1fr;
         }
         .card {
           padding: 14px;
@@ -1830,7 +1855,7 @@
       if (tracker.type === "numeric") return entry.count || 0;
       if (tracker.type === "session") {
         const runningExtra = entry.running && entry.startedAt ? Math.floor((Date.now() - entry.startedAt) / 1000) : 0;
-        return Math.round(((entry.totalSeconds || 0) + runningExtra) / 60);
+        return Math.round(((entry.totalSeconds || 0) + (entry.currentSessionSeconds || 0) + runningExtra) / 60);
       }
       return 0;
     }
@@ -1908,13 +1933,21 @@
       setCustomFrequency,
     }) {
       const canSubmit = input.trim() && (frequencyPreset !== "custom" || customFrequency.trim());
+      const quickPrompts = ["Track gym workouts", "Log deep work sessions", "Track daily reading"];
+
+      const handleQuickPrompt = (prompt) => {
+        setInput(prompt);
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      };
 
       return (
         <section className="prompt-card">
           <textarea
             ref={inputRef}
             className="prompt-input"
-            placeholder="What do you want to track?"
+            placeholder="What do you want to track? (e.g., 'Track workouts, water, and reading')"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -1924,6 +1957,14 @@
               }
             }}
           />
+          <div className="quick-prompts">
+            <span className="frequency-label">Try:</span>
+            {quickPrompts.map((p) => (
+              <button key={p} type="button" className="quick-prompt-btn" onClick={() => handleQuickPrompt(p)}>
+                {p}
+              </button>
+            ))}
+          </div>
           <div className="prompt-frequency">
             <div className="frequency-label">Cadence for this prompt</div>
             <div className="frequency-pills">
@@ -2291,7 +2332,7 @@
       );
     }
 
-    function PreferencesModal({ preferences, onUpdate, onClose, onExport, onExportCSV, onDeleteAccount }) {
+    function PreferencesModal({ preferences, onUpdate, onClose }) {
       return (
         <div className="modal-backdrop" onClick={onClose}>
           <div className="modal preferences-modal" onClick={(e) => e.stopPropagation()}>
@@ -2368,15 +2409,6 @@
                   />
                 </div>
               </section>
-
-              <section className="section-block">
-                <div className="section-title">Data</div>
-                <div className="preferences-actions">
-                  <button type="button" className="ghost-btn" onClick={onExport}>Export JSON</button>
-                  <button type="button" className="ghost-btn" onClick={onExportCSV}>Export CSV</button>
-                  <button type="button" className="ghost-btn danger" onClick={onDeleteAccount}>Delete cloud data</button>
-                </div>
-              </section>
             </div>
           </div>
         </div>
@@ -2409,7 +2441,7 @@
           if (tracker.goal) return acc + ((entry.count || 0) >= tracker.goal ? 1 : 0);
           return acc + ((entry.count || 0) > 0 ? 1 : 0);
         }
-        if (tracker.type === "session") return acc + (((entry.totalSeconds || 0) > 0 || entry.running) ? 1 : 0);
+        if (tracker.type === "session") return acc + (((entry.totalSeconds || 0) > 0 || entry.running || (entry.currentSessionSeconds || 0) > 0) ? 1 : 0);
         return acc;
       }, 0);
 
@@ -2568,7 +2600,7 @@
       );
     }
 
-    function SessionCard({ tracker, entry, onToggle, onStartAnother, onCustomize }) {
+    function SessionCard({ tracker, entry, onToggle, onLog, onCustomize }) {
       const [now, setNow] = useState(Date.now());
       useEffect(() => {
         if (!entry.running) return undefined;
@@ -2577,21 +2609,26 @@
       }, [entry.running]);
 
       const elapsed = entry.running && entry.startedAt ? Math.floor((now - entry.startedAt) / 1000) : 0;
-      const total = (entry.totalSeconds || 0) + elapsed;
+      const currentSessionTotal = (entry.currentSessionSeconds || 0) + elapsed;
+      const totalToday = (entry.totalSeconds || 0) + currentSessionTotal;
       const sessionCount = (entry.logs || []).filter((log) => log.kind === "session").length;
       const goalMinutes = tracker.goal;
-      const ratio = goalMinutes ? Math.min(total / (goalMinutes * 60), 1) : 0;
+      const ratio = goalMinutes ? Math.min(totalToday / (goalMinutes * 60), 1) : 0;
 
       return (
         <div className="primary-zone">
           <div className="session-line">
-            <div className="time">{formatDuration(total)}</div>
-            <button className={`session-btn${entry.running ? " running" : ""}`} onClick={onToggle}>
-              {entry.running ? "Stop" : "Start"}
-            </button>
-            {!entry.running && total > 0 ? (
-              <button className="ghost-btn" onClick={onStartAnother}>Start another run</button>
-            ) : null}
+            <div className="time">{formatDuration(currentSessionTotal)}</div>
+            {!entry.running && currentSessionTotal > 0 ? (
+              <>
+                <button className="session-btn" onClick={onToggle}>Resume</button>
+                <button className="session-btn running" onClick={onLog}>Log</button>
+              </>
+            ) : (
+              <button className={`session-btn${entry.running ? " running" : ""}`} onClick={onToggle}>
+                {entry.running ? "Pause" : "Start"}
+              </button>
+            )}
             {entry.running ? <div className="session-pulse" /> : null}
           </div>
 
@@ -2610,14 +2647,15 @@
 
           {goalMinutes ? (
             <>
-              <div className="metric"><strong>{Math.max(goalMinutes - Math.floor(total / 60), 0)}</strong> mins to go</div>
+              <div className="metric"><strong>{formatShortDuration(totalToday)}</strong> total today • <strong>{Math.max(goalMinutes - Math.floor(totalToday / 60), 0)}</strong> mins to go</div>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: `${ratio * 100}%` }} />
               </div>
             </>
           ) : (
             <div className="metric">
-              <strong>{formatShortDuration(total)}</strong> today
+              {entry.running || currentSessionTotal > 0 ? `Current session • ` : ""}
+              <strong>{formatShortDuration(totalToday)}</strong> total today
               {sessionCount ? ` • ${sessionCount} session${sessionCount === 1 ? "" : "s"} logged` : ""}
             </div>
           )}
@@ -2635,11 +2673,12 @@
       onAddNumeric,
       onSubtractNumeric,
       onToggleSession,
-      onStartAnotherSession,
+      onLogSession,
       onAddSessionMinutes,
       onToggleCustomize,
       expanded,
       onCustomize,
+      onRemoveLog,
       draggableProps,
       innerRef,
     }) {
@@ -2699,7 +2738,7 @@
           <NumericCard tracker={tracker} entry={entry} onAdd={onAddNumeric} onSubtract={onSubtractNumeric} onCustomize={(patch) => onCustomize(patch)} />
           ) : null}
           {tracker.type === "session" ? (
-          <SessionCard tracker={tracker} entry={entry} onToggle={onToggleSession} onStartAnother={onStartAnotherSession} onCustomize={(patch) => onCustomize(patch)} />
+        <SessionCard tracker={tracker} entry={entry} onToggle={onToggleSession} onLog={onLogSession} onCustomize={(patch) => onCustomize(patch)} />
           ) : null}
 
           <div className="secondary-row">
@@ -2819,9 +2858,12 @@
                     ? new Date(log.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
                     : "today";
                   return (
-                    <div className="history-item" key={`${tracker.id}_${index}_${timeLabel}`}>
+                    <div className="history-item" key={log.at || index}>
                       <span>{text}</span>
-                      <span className="history-meta">{timeLabel}</span>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <span className="history-meta">{timeLabel}</span>
+                        <button type="button" className="link-btn" style={{padding: '2px', lineHeight: 1, fontSize: '1.2rem'}} onClick={() => onRemoveLog(log.at)} title="Delete log entry">&times;</button>
+                      </div>
                     </div>
                   );
                 }) : (
@@ -2918,6 +2960,7 @@
       const [undoState, setUndoState] = useState(null);
       const [redoState, setRedoState] = useState(null);
       const [profileOpen, setProfileOpen] = useState(false);
+      const [exportMenuOpen, setExportMenuOpen] = useState(false);
       const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
       const [preferencesOpen, setPreferencesOpen] = useState(false);
       const [dayModal, setDayModal] = useState(null);
@@ -2934,6 +2977,7 @@
 
       const closeFloatingUi = (except = []) => {
         if (!except.includes("profile")) setProfileOpen(false);
+        if (!except.includes("export")) setExportMenuOpen(false);
         if (!except.includes("delete")) setDeleteMenuOpen(false);
         if (!except.includes("preferences")) setPreferencesOpen(false);
         if (!except.includes("day")) setDayModal(null);
@@ -3034,6 +3078,7 @@
         const handler = (event) => {
           if (!event.target.closest(".profile-wrap")) {
             setProfileOpen(false);
+            setExportMenuOpen(false);
             setDeleteMenuOpen(false);
           }
         };
@@ -3049,7 +3094,10 @@
       }, [musicPlaying]);
 
       useEffect(() => {
-        if (!profileOpen) setDeleteMenuOpen(false);
+        if (!profileOpen) {
+          setDeleteMenuOpen(false);
+          setExportMenuOpen(false);
+        }
       }, [profileOpen]);
 
       const persist = async (next, undoLabel = "") => {
@@ -3265,13 +3313,27 @@
               ...prev,
               running: false,
               startedAt: null,
-              totalSeconds: (prev.totalSeconds || 0) + elapsed,
-              logs: [...(prev.logs || []), { kind: "session", seconds: elapsed, at: Date.now() }],
+              currentSessionSeconds: (prev.currentSessionSeconds || 0) + elapsed,
             };
           }
           return { ...prev, running: true, startedAt: Date.now() };
         },
         `${tracker.name} session updated`
+      );
+
+      const logSession = (tracker) => mutateTrackerData(
+        tracker.id,
+        (prev) => {
+          const secondsToLog = prev.currentSessionSeconds || 0;
+          if (secondsToLog <= 0) return prev;
+          return {
+            ...prev,
+            currentSessionSeconds: 0,
+            totalSeconds: (prev.totalSeconds || 0) + secondsToLog,
+            logs: [...(prev.logs || []), { kind: "session", seconds: secondsToLog, at: Date.now() }],
+          };
+        },
+        `${tracker.name} session logged`
       );
 
       const addSessionMinutes = (tracker, minutes) => mutateTrackerData(
@@ -3282,15 +3344,6 @@
           logs: [...(prev.logs || []), { kind: "session", seconds: Math.round(minutes * 60), at: Date.now() }],
         }),
         `${tracker.name} logged`
-      );
-
-      const startAnotherSession = (tracker) => mutateTrackerData(
-        tracker.id,
-        (prev) => {
-          if (prev.running) return prev;
-          return { ...prev, running: true, startedAt: Date.now() };
-        },
-        `${tracker.name} session started`
       );
 
       const removeTracker = async (trackerId) => {
@@ -3316,6 +3369,28 @@
           trackers: state.trackers.map((tracker) => tracker.id === trackerId ? normalizeTracker({ ...tracker, ...patch, id: tracker.id }) : tracker),
         };
         await persist(next, "Tracker updated");
+      };
+
+      const removeLog = async (trackerId, logTimestamp) => {
+        const tracker = state.trackers.find(t => t.id === trackerId);
+        if (!tracker) return;
+
+        await mutateTrackerData(trackerId, (prev) => {
+          const logToRemove = (prev.logs || []).find(l => l.at === logTimestamp);
+          if (!logToRemove) return prev;
+
+          const nextLogs = (prev.logs || []).filter(l => l.at !== logTimestamp);
+          let patch = {};
+
+          if (tracker.type === 'session' && logToRemove.kind === 'session') {
+            patch.totalSeconds = Math.max(0, (prev.totalSeconds || 0) - (logToRemove.seconds || 0));
+          }
+          if (tracker.type === 'numeric' && logToRemove.kind === 'numeric') {
+            patch.count = Math.max(0, (prev.count || 0) - (logToRemove.value || 0));
+          }
+
+          return { ...prev, logs: nextLogs, ...patch };
+        }, `${tracker.name} log removed`);
       };
 
       const undoLast = async () => {
@@ -3603,7 +3678,13 @@
                     >
                       Preferences
                     </button>
-                    <button type="button" className="profile-item soft" data-tip="Download your current Declo workspace as JSON." onClick={exportData}>Export data</button>
+                    <button type="button" className="profile-item" data-tip="Download your current Declo workspace." onClick={() => setExportMenuOpen(open => !open)}>Export data…</button>
+                    {exportMenuOpen ? (
+                      <div className="profile-submenu">
+                        <button type="button" className="profile-item" onClick={exportData}>as JSON</button>
+                        <button type="button" className="profile-item" onClick={exportCSV}>as CSV</button>
+                      </div>
+                    ) : null}
                     <button type="button" className="profile-item" data-tip="Sign out of this device without deleting saved data." onClick={logout}>Logout</button>
                     <div className="profile-divider" />
                     <button
@@ -3717,11 +3798,12 @@
                       onAddNumeric={(amount) => addNumeric(tracker, amount)}
                       onSubtractNumeric={(amount) => subtractNumeric(tracker, amount)}
                       onToggleSession={() => toggleSession(tracker)}
-                      onStartAnotherSession={() => startAnotherSession(tracker)}
+                      onLogSession={() => logSession(tracker)}
                       onAddSessionMinutes={(minutes) => addSessionMinutes(tracker, minutes)}
                       onToggleCustomize={() => setExpanded((prev) => ({ ...prev, [tracker.id]: !prev[tracker.id] }))}
                       expanded={Boolean(expanded[tracker.id])}
                       onCustomize={(patch) => customizeTracker(tracker.id, patch)}
+                      onRemoveLog={(logAt) => removeLog(tracker.id, logAt)}
                       draggableProps={{
                         dragging: draggingId === tracker.id,
                         onDragStart: () => setDraggingId(tracker.id),
@@ -3741,9 +3823,6 @@
               preferences={state.meta?.preferences || getDefaultPreferences()}
               onUpdate={updatePreferences}
               onClose={() => closeFloatingUi()}
-              onExport={exportData}
-              onExportCSV={exportCSV}
-              onDeleteAccount={deleteAccount}
             />
           ) : null}
         </div>
