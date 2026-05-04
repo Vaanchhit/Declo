@@ -108,7 +108,16 @@ export async function parseTrackersWithGemini(userInput, currentTrackers) {
 
   const payload = { contents: [{ parts: [{ text: buildParsePrompt(userInput.trim(), Array.isArray(currentTrackers) ? currentTrackers : []) }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: buildResponseSchema() } };
   const primaryModel = getEnv("GEMINI_PRIMARY_MODEL", "GEMINI_MODEL") || "gemini-2.5-flash";
+  const fallbackModel = getEnv("GEMINI_FALLBACK_MODEL") || "gemini-2.0-flash";
   
-  const trackers = await requestGemini(payload, primaryModel);
-  return { trackers, model: primaryModel, fallback_used: false };
+  try {
+    const trackers = await requestGemini(payload, primaryModel);
+    return { trackers, model: primaryModel, fallback_used: false };
+  } catch (err) {
+    if (!fallbackModel || primaryModel === fallbackModel || err.status !== 502) {
+      throw err;
+    }
+    const trackers = await requestGemini(payload, fallbackModel);
+    return { trackers, model: fallbackModel, fallback_used: true };
+  }
 }

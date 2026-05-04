@@ -2391,7 +2391,7 @@
                   <button
                     type="button"
                     className={`toggle-btn${preferences.daily_nudge ? " on" : ""}`}
-                    onClick={() => onUpdate({ daily_nudge: !preferences.daily_nudge })}
+                    onClick={() => alert("This feature is currently underway.")}
                   >
                     {preferences.daily_nudge ? "On" : "Off"}
                   </button>
@@ -2405,7 +2405,8 @@
                     className="inline-input"
                     type="time"
                     value={preferences.nudge_time || ""}
-                    onChange={(e) => onUpdate({ nudge_time: e.target.value })}
+                    onClick={() => alert("This feature is currently underway.")}
+                    onChange={() => {}}
                   />
                 </div>
               </section>
@@ -3415,7 +3416,7 @@
       };
 
       const resetData = async () => {
-        if (!confirm("Reset all tracker data?")) return;
+        if (!confirm("Clear all trackers and logs? This will give you a blank workspace but keep you logged in.")) return;
         const next = {
           trackers: [],
           data: {},
@@ -3483,7 +3484,7 @@
       };
 
       const deleteAccount = async () => {
-        if (!confirm("Delete your saved Declo cloud data? Your login will remain available.")) return;
+        if (!confirm("Delete your account data from the cloud and sign out?")) return;
         await apiFetch("/api/account", { method: "DELETE" });
         if (supabaseClient) {
           await supabaseClient.auth.signOut();
@@ -3697,8 +3698,8 @@
                     </button>
                     {deleteMenuOpen ? (
                       <div className="profile-submenu">
-                        <button type="button" className="profile-item danger" data-tip="Remove only the tracker data currently stored in this workspace." onClick={resetData}>Reset local data</button>
-                        <button type="button" className="profile-item danger" data-tip="Delete your saved cloud workspace and sign out." onClick={deleteAccount}>Delete cloud data</button>
+                      <button type="button" className="profile-item danger" data-tip="Wipe all trackers and logs, but stay logged in." onClick={resetData}>Clear workspace</button>
+                      <button type="button" className="profile-item danger" data-tip="Delete your data from the server and sign out." onClick={deleteAccount}>Delete account data</button>
                       </div>
                     ) : null}
                   </div>

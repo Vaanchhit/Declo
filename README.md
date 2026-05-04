@@ -63,7 +63,7 @@ The tracker adjusts to you.
 - Frontend: HTML, CSS, JavaScript  
 - Backend: Vercel Serverless Functions (Node.js)  
 - Local dev server: Vercel CLI (`vercel dev`)  
-- AI: Gemini 2.5 Flash (Primary), Gemini 1.5 Pro Latest (Fallback)  
+- AI: Gemini 2.5 Flash (Primary), Gemini 2.0 Flash (Fallback)  
 - Database: Supabase  
 
 ---
