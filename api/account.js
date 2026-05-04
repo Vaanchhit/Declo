@@ -1,4 +1,4 @@
-import { requireUser } from "./_lib/auth.js";
+npm i -g vercelimport { requireUser } from "./_lib/auth.js";
 import { deleteWorkspaceState } from "./_lib/store.js";
 
 export default async function handler(req, res) {

@@ -331,6 +331,11 @@
       .side-toggle:active {
         transform: scale(0.98);
       }
+      .icon-btn.active {
+        color: var(--accent);
+        border-color: rgba(138, 106, 75, 0.26);
+        background: rgba(138, 106, 75, 0.14);
+      }
       .primary-btn {
         border: 0;
         background: linear-gradient(135deg, var(--accent), var(--accent-soft));
@@ -535,10 +540,11 @@
         margin: 0 auto;
         display: grid;
         gap: 0.08em;
-        font-size: clamp(2.65rem, 5.2vw, 4.55rem);
-        line-height: 0.96;
+        font-size: clamp(2rem, 4vw, 3.4rem);
+        line-height: 1.1;
         letter-spacing: -0.045em;
         font-weight: 600;
+        padding-bottom: 0.1em;
       }
       .type-line-wrap {
         display: block;
@@ -555,6 +561,7 @@
         margin: 0;
         overflow: hidden;
         white-space: nowrap;
+        padding-bottom: 0.1em;
       }
       .type-line.line-1 {
         animation: typeLine21 1.5s steps(21, end) forwards;
@@ -1539,6 +1546,20 @@
           margin-top: 34px;
           padding-bottom: 56px;
         }
+        .hero-title {
+          font-size: clamp(1.75rem, 7vw, 2.2rem);
+          line-height: 1.1;
+        }
+        .card {
+          padding: 14px;
+        }
+        .prompt-row, .prompt-actions, .manual-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .prompt-actions button, .manual-input {
+          width: 100%;
+        }
         .hero-actions {
           justify-content: center;
         }
@@ -1982,6 +2003,7 @@
       onAuth,
       authLoading,
       authError,
+      onResetPassword
     }) {
       const authRef = useRef(null);
       const emailRef = useRef(null);
@@ -2241,6 +2263,11 @@
                       }
                     }}
                   />
+                  {authMode === "login" ? (
+                    <button type="button" className="link-btn" style={{ fontSize: "0.85rem", textAlign: "right", marginTop: "-6px" }} onClick={onResetPassword}>
+                      Forgot password?
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="primary-btn"
@@ -2264,7 +2291,7 @@
       );
     }
 
-    function PreferencesModal({ preferences, onUpdate, onClose, onExport, onDeleteAccount }) {
+    function PreferencesModal({ preferences, onUpdate, onClose, onExport, onExportCSV, onDeleteAccount }) {
       return (
         <div className="modal-backdrop" onClick={onClose}>
           <div className="modal preferences-modal" onClick={(e) => e.stopPropagation()}>
@@ -2345,7 +2372,8 @@
               <section className="section-block">
                 <div className="section-title">Data</div>
                 <div className="preferences-actions">
-                  <button type="button" className="ghost-btn" onClick={onExport}>Export data</button>
+                  <button type="button" className="ghost-btn" onClick={onExport}>Export JSON</button>
+                  <button type="button" className="ghost-btn" onClick={onExportCSV}>Export CSV</button>
                   <button type="button" className="ghost-btn danger" onClick={onDeleteAccount}>Delete cloud data</button>
                 </div>
               </section>
@@ -2395,6 +2423,30 @@
           <SidebarSection title="Today" summary="Daily snapshot" defaultOpen={true}>
             <div className="snapshot">{completed} / {trackers.length || 0}</div>
             <div className="snapshot-copy">trackers completed</div>
+          </SidebarSection>
+
+          <SidebarSection title="Today's Targets" summary="What's left" defaultOpen={true}>
+            <div className="tracker-list">
+              {trackers.map((tracker) => {
+                const entry = ensureDayData(data, tracker.id, today);
+                let status = "";
+                if (tracker.type === "binary") status = entry.done ? "Done" : "Pending";
+                if (tracker.type === "numeric") {
+                  const count = entry.count || 0;
+                  status = tracker.goal ? `${count} / ${tracker.goal} ${tracker.unit || ""}` : `${count} logged`;
+                }
+                if (tracker.type === "session") {
+                  const total = entry.totalSeconds || 0;
+                  status = formatShortDuration(total);
+                }
+                return (
+                  <div key={tracker.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", padding: "4px 0" }}>
+                    <span>{tracker.name}</span>
+                    <span style={{ color: "var(--muted)" }}>{status}</span>
+                  </div>
+                );
+              })}
+            </div>
           </SidebarSection>
 
           <SidebarSection title="Daily progress" summary="Last 12 weeks" defaultOpen={true}>
@@ -2469,7 +2521,7 @@
       );
     }
 
-    function NumericCard({ tracker, entry, onAdd, onSubtract }) {
+    function NumericCard({ tracker, entry, onAdd, onSubtract, onCustomize }) {
       const count = entry.count || 0;
       const goal = tracker.goal;
       const ratio = goal ? Math.min(count / goal, 1) : 0;
@@ -2479,6 +2531,21 @@
             <div className="count">{count}</div>
             {tracker.unit ? <div className="unit">{tracker.unit}</div> : null}
           </div>
+          
+          <div className="metric" style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0" }}>
+            <span style={{ color: "var(--muted)" }}>Target:</span>
+            <input
+              className="micro-input"
+              style={{ minHeight: "32px", padding: "4px 10px", width: "90px", border: "1px solid var(--line)", background: "var(--surface-solid)" }}
+              type="number"
+              min="0"
+              placeholder="None"
+              value={goal || ""}
+              onChange={(e) => onCustomize({ goal: e.target.value === "" ? null : Number(e.target.value) })}
+            />
+            {tracker.unit ? <span style={{ color: "var(--muted)" }}>{tracker.unit}</span> : null}
+          </div>
+
           {goal ? (
             <>
               <div className="metric"><strong>{Math.max(goal - count, 0)}</strong> {tracker.unit || ""} to go</div>
@@ -2501,7 +2568,7 @@
       );
     }
 
-    function SessionCard({ entry, onToggle, onStartAnother }) {
+    function SessionCard({ tracker, entry, onToggle, onStartAnother, onCustomize }) {
       const [now, setNow] = useState(Date.now());
       useEffect(() => {
         if (!entry.running) return undefined;
@@ -2512,6 +2579,8 @@
       const elapsed = entry.running && entry.startedAt ? Math.floor((now - entry.startedAt) / 1000) : 0;
       const total = (entry.totalSeconds || 0) + elapsed;
       const sessionCount = (entry.logs || []).filter((log) => log.kind === "session").length;
+      const goalMinutes = tracker.goal;
+      const ratio = goalMinutes ? Math.min(total / (goalMinutes * 60), 1) : 0;
 
       return (
         <div className="primary-zone">
@@ -2525,10 +2594,33 @@
             ) : null}
             {entry.running ? <div className="session-pulse" /> : null}
           </div>
-          <div className="metric">
-            <strong>{formatShortDuration(total)}</strong> today
-            {sessionCount ? ` • ${sessionCount} session${sessionCount === 1 ? "" : "s"} logged` : ""}
+
+          <div className="metric" style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0" }}>
+            <span style={{ color: "var(--muted)" }}>Target (min):</span>
+            <input
+              className="micro-input"
+              style={{ minHeight: "32px", padding: "4px 10px", width: "90px", border: "1px solid var(--line)", background: "var(--surface-solid)" }}
+              type="number"
+              min="0"
+              placeholder="None"
+              value={goalMinutes || ""}
+              onChange={(e) => onCustomize({ goal: e.target.value === "" ? null : Number(e.target.value) })}
+            />
           </div>
+
+          {goalMinutes ? (
+            <>
+              <div className="metric"><strong>{Math.max(goalMinutes - Math.floor(total / 60), 0)}</strong> mins to go</div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${ratio * 100}%` }} />
+              </div>
+            </>
+          ) : (
+            <div className="metric">
+              <strong>{formatShortDuration(total)}</strong> today
+              {sessionCount ? ` • ${sessionCount} session${sessionCount === 1 ? "" : "s"} logged` : ""}
+            </div>
+          )}
         </div>
       );
     }
@@ -2604,10 +2696,10 @@
             <BinaryCard tracker={tracker} entry={entry} trackerHistory={trackerHistory} onToggle={onToggleBinary} />
           ) : null}
           {tracker.type === "numeric" ? (
-            <NumericCard tracker={tracker} entry={entry} onAdd={onAddNumeric} onSubtract={onSubtractNumeric} />
+          <NumericCard tracker={tracker} entry={entry} onAdd={onAddNumeric} onSubtract={onSubtractNumeric} onCustomize={(patch) => onCustomize(patch)} />
           ) : null}
           {tracker.type === "session" ? (
-            <SessionCard entry={entry} onToggle={onToggleSession} onStartAnother={onStartAnotherSession} />
+          <SessionCard tracker={tracker} entry={entry} onToggle={onToggleSession} onStartAnother={onStartAnotherSession} onCustomize={(patch) => onCustomize(patch)} />
           ) : null}
 
           <div className="secondary-row">
@@ -2834,9 +2926,11 @@
       const [composerOpen, setComposerOpen] = useState(false);
       const [frequencyPreset, setFrequencyPreset] = useState("daily");
       const [customFrequency, setCustomFrequency] = useState("");
+      const [musicPlaying, setMusicPlaying] = useState(false);
       const inputRef = useRef(null);
       const cardRefs = useRef({});
       const parseControllerRef = useRef(null);
+      const audioRef = useRef(null);
 
       const closeFloatingUi = (except = []) => {
         if (!except.includes("profile")) setProfileOpen(false);
@@ -2948,6 +3042,13 @@
       }, []);
 
       useEffect(() => {
+        if (audioRef.current) {
+          if (musicPlaying) audioRef.current.play().catch(() => setMusicPlaying(false));
+          else audioRef.current.pause();
+        }
+      }, [musicPlaying]);
+
+      useEffect(() => {
         if (!profileOpen) setDeleteMenuOpen(false);
       }, [profileOpen]);
 
@@ -3033,6 +3134,18 @@
         }
       };
 
+      const handleResetPassword = async () => {
+        if (!authForm.email.trim()) {
+          setAuthError("Enter your email to reset password.");
+          return;
+        }
+        setAuthLoading(true);
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(authForm.email);
+        setAuthLoading(false);
+        if (error) setAuthError(error.message);
+        else setAuthError("Password reset email sent.");
+      };
+
       const today = todayKey();
 
       const handleSubmit = async () => {
@@ -3085,7 +3198,6 @@
         const next = { ...state, trackers: [...state.trackers, tracker] };
         await persist(next, "Manual tracker added");
         setManual({ name: "", type: "binary" });
-        closeFloatingUi();
       };
 
       const mutateTrackerData = async (trackerId, updater, undoLabel) => {
@@ -3269,6 +3381,32 @@
         closeFloatingUi();
       };
 
+      const exportCSV = () => {
+        const rows = [["Date", "Tracker Name", "Type", "Value", "Unit"]];
+        state.trackers.forEach((tracker) => {
+          const trackerData = state.data[tracker.id] || {};
+          Object.keys(trackerData).forEach((date) => {
+            const entry = trackerData[date];
+            let val = 0;
+            if (tracker.type === "binary") val = entry.done ? 1 : 0;
+            if (tracker.type === "numeric") val = entry.count || 0;
+            if (tracker.type === "session") val = entry.totalSeconds || 0;
+            rows.push([date, tracker.name, tracker.type, val, tracker.unit || ""]);
+          });
+        });
+        const csvContent = rows.map((e) => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `declo-${profileName.toLowerCase().replace(/\s+/g, "-") || "workspace"}.csv`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        closeFloatingUi();
+      };
+
       const deleteAccount = async () => {
         if (!confirm("Delete your saved Declo cloud data? Your login will remain available.")) return;
         await apiFetch("/api/account", { method: "DELETE" });
@@ -3339,6 +3477,7 @@
             onAuth={handleAuth}
             authLoading={authLoading}
             authError={authError}
+            onResetPassword={handleResetPassword}
           />
         );
       }
@@ -3401,6 +3540,18 @@
                 </button>
               </div>
               <div className="tutorial-wrap">
+                <button
+                  type="button"
+                  className={`icon-btn${musicPlaying ? " active" : ""}`}
+                  onClick={() => setMusicPlaying(!musicPlaying)}
+                  aria-label="Toggle Music"
+                  data-tip="Play background music."
+                >
+                  {musicPlaying ? "⏸" : "♫"}
+                </button>
+                <audio ref={audioRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" preload="none" />
+              </div>
+              <div className="profile-wrap">
                 <button
                   type="button"
                   className="icon-btn"
@@ -3476,6 +3627,24 @@
           </div>
 
           <main className={`main${composerOpen ? " composer-open" : ""}`}>
+              {state.trackers.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "8px" }}>
+                  {state.trackers.map(tracker => {
+                    const entry = ensureDayData(state.data, tracker.id, today);
+                    let progress = 0;
+                    if (tracker.type === "binary") progress = entry.done ? 100 : 0;
+                    if (tracker.type === "numeric") progress = tracker.goal ? Math.min((entry.count || 0) / tracker.goal * 100, 100) : (entry.count ? 100 : 0);
+                    if (tracker.type === "session") progress = entry.totalSeconds > 0 ? 100 : 0;
+                    return (
+                      <div key={`vis_${tracker.id}`} style={{ padding: "12px", borderRadius: "16px", background: "var(--surface)", border: "1px solid var(--line)" }}>
+                        <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: "8px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tracker.name}</div>
+                        <div className="progress-track" style={{ height: "6px" }}><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {state.trackers.length > 0 ? (
                 <section className={`utility-row${composerOpen ? " composer-active" : ""}`}>
                   <div className="utility-actions">
@@ -3573,6 +3742,7 @@
               onUpdate={updatePreferences}
               onClose={() => closeFloatingUi()}
               onExport={exportData}
+              onExportCSV={exportCSV}
               onDeleteAccount={deleteAccount}
             />
           ) : null}
