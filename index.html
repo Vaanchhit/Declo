@@ -1147,11 +1147,13 @@
       }
       :root[data-layout="horizontal"] .cards {
         grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-        align-items: start;
+        align-items: stretch;
       }
       .card {
         padding: 18px;
         transition: transform 0.18s ease, box-shadow 0.18s ease;
+        display: flex;
+        flex-direction: column;
       }
       .card:hover {
         transform: translateY(-2px);
@@ -1203,6 +1205,7 @@
       .primary-zone {
         display: grid;
         gap: 14px;
+        margin-bottom: 18px;
       }
       .binary-row,
       .session-line,
@@ -1296,6 +1299,7 @@
         align-items: center;
         gap: 12px;
         flex-wrap: wrap;
+        margin-top: auto;
       }
       .link-btn {
         border: 0;
