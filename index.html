@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Declo</title>
+  <link rel="icon" type="image/png" href="./declo-logo.png" />
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -66,15 +67,26 @@
         color: var(--text);
         font-family: Garamond, Baskerville, Georgia, serif;
       }
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background:
-          linear-gradient(transparent 95%, rgba(104, 88, 67, 0.045) 95%) 0 0 / 100% 34px,
-          linear-gradient(90deg, transparent 95%, rgba(104, 88, 67, 0.032) 95%) 0 0 / 34px 100%;
-        opacity: 0.32;
+      .logo-mark {
+        width: 58px;
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        flex-shrink: 0;
+        transition: transform 0.18s ease;
+        cursor: pointer;
+      }
+      .logo-mark:hover {
+        transform: scale(1.06);
+      }
+      .logo-mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: transparent;
+        mix-blend-mode: multiply;
       }
       button, input, textarea, select { font: inherit; }
       button {
@@ -260,6 +272,7 @@
       .profile-btn,
       .drag-handle,
       .delete-btn {
+        position: relative;
         width: 42px;
         height: 42px;
         display: grid;
@@ -364,6 +377,30 @@
         background: #4a5466;
         border-radius: 999px;
         display: block;
+      }
+      .menu-logo-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 28px;
+        height: 28px;
+        background: var(--surface-solid);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(59, 42, 24, 0.16);
+        transition: opacity 0.2s ease;
+      }
+      .menu-logo-overlay img {
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+        mix-blend-mode: multiply;
+      }
+      .menu-btn:hover .menu-logo-overlay {
+        opacity: 0;
       }
       .tutorial-wrap,
       .profile-wrap {
@@ -1467,6 +1504,10 @@
       :root[data-theme="dark"] .demo-banner {
         background: linear-gradient(135deg, rgba(138, 106, 75, 0.22), rgba(98, 82, 63, 0.34));
       }
+      :root[data-theme="dark"] .logo-mark img,
+      :root[data-theme="dark"] .menu-logo-overlay img {
+        mix-blend-mode: normal;
+      }
       :root[data-theme="dark"] .binary-btn.done {
         background: #6d785b;
         border-color: #6d785b;
@@ -1918,6 +1959,10 @@
       return frequency.charAt(0).toUpperCase() + frequency.slice(1);
     }
 
+    const DecloLogo = () => (
+      <img src="./declo-logo.png" alt="Declo Logo" />
+    );
+
     function PromptCard({
       input,
       setInput,
@@ -2078,9 +2123,14 @@
       return (
         <div className="landing-shell">
           <nav className="landing-nav">
-            <div className="brand">
-              <div className="brand-title">Declo</div>
-              <div className="brand-copy">Build your own tracking system, just by describing it.</div>
+            <div className="topbar-left">
+              <div className="logo-mark">
+                <DecloLogo />
+              </div>
+              <div className="brand">
+                <div className="brand-title">Declo</div>
+                <div className="brand-copy">Build your own tracking system, just by describing it.</div>
+              </div>
             </div>
             <div className="landing-nav-links">
               <button type="button" className="nav-glass-link" data-tip="Jump to the generated workspace preview." onClick={scrollToDemo}>Product demo</button>
@@ -2249,9 +2299,14 @@
               <div className="landing-eyebrow">Get Started</div>
               <h2 className="cta-title">Build a system that actually works for you.</h2>
               <section className="auth-card landing-auth-card">
-                <div className="brand">
-                  <div className="brand-title">Start building with Declo</div>
-                  <div className="brand-copy">Open your workspace and generate a system from your own prompt.</div>
+                <div className="topbar-left" style={{ marginBottom: '12px' }}>
+                  <div className="logo-mark">
+                    <DecloLogo />
+                  </div>
+                  <div className="brand">
+                    <div className="brand-title">Start building</div>
+                    <div className="brand-copy">Generate a system from your own prompt.</div>
+                  </div>
                 </div>
                 <div className="auth-title">{authMode === "signup" ? "Create your account." : "Welcome back."}</div>
                 <div className="auth-copy">
@@ -2926,9 +2981,14 @@
       return (
         <div className="auth-shell">
           <section className="auth-card">
-            <div className="brand">
-              <div className="brand-title">Declo</div>
-              <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+            <div className="topbar-left" style={{ marginBottom: '16px' }}>
+              <div className="logo-mark">
+                <DecloLogo />
+              </div>
+              <div className="brand">
+                <div className="brand-title">Declo</div>
+                <div className="brand-copy">Customizable Notion, in a single prompt.</div>
+              </div>
             </div>
             <div className="auth-title">{title}</div>
             <div className="auth-copy">{copy}</div>
@@ -3594,6 +3654,9 @@
                   <span />
                   <span />
                   <span />
+                </div>
+                <div className="menu-logo-overlay">
+                  <DecloLogo />
                 </div>
               </button>
               <div className="brand">
