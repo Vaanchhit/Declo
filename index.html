@@ -795,51 +795,6 @@
         display: grid;
         gap: 12px;
       }
-      .demo-banner {
-        padding: 18px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, rgba(138, 106, 75, 0.16), rgba(178, 143, 105, 0.2));
-        display: grid;
-        gap: 8px;
-      }
-      .demo-banner strong {
-        font-size: 1.45rem;
-        letter-spacing: -0.04em;
-      }
-      .demo-trackers {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .demo-tracker {
-        border-radius: 18px;
-        padding: 14px;
-        background: rgba(255, 251, 244, 0.72);
-        border: 1px solid rgba(99, 75, 52, 0.1);
-        display: grid;
-        gap: 10px;
-      }
-      .demo-pill {
-        width: fit-content;
-        padding: 4px 10px;
-        border-radius: 999px;
-        background: rgba(74, 84, 102, 0.08);
-        color: #516072;
-        font-size: 0.76rem;
-      }
-      .demo-progress {
-        width: 100%;
-        height: 6px;
-        border-radius: 999px;
-        background: rgba(117, 101, 81, 0.12);
-        overflow: hidden;
-      }
-      .demo-progress span {
-        display: block;
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #b69472, #876545);
-      }
       .demo-placeholder {
         border-radius: 20px;
         border: 1px dashed rgba(99, 75, 52, 0.22);
@@ -1190,6 +1145,10 @@
         display: grid;
         gap: 14px;
       }
+      :root[data-layout="horizontal"] .cards {
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        align-items: start;
+      }
       .card {
         padding: 18px;
         transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -1485,7 +1444,6 @@
       :root[data-theme="dark"] .history-item,
       :root[data-theme="dark"] .log-item,
       :root[data-theme="dark"] .feature-card,
-      :root[data-theme="dark"] .demo-tracker,
       :root[data-theme="dark"] .demo-browser,
       :root[data-theme="dark"] .contrast-card,
       :root[data-theme="dark"] .step-card,
@@ -1500,9 +1458,6 @@
         background: rgba(58, 53, 48, 0.82);
         color: var(--muted);
         border-color: var(--line-strong);
-      }
-      :root[data-theme="dark"] .demo-banner {
-        background: linear-gradient(135deg, rgba(138, 106, 75, 0.22), rgba(98, 82, 63, 0.34));
       }
       :root[data-theme="dark"] .logo-mark img,
       :root[data-theme="dark"] .menu-logo-overlay img {
@@ -1533,8 +1488,7 @@
           gap: 72px;
         }
         .contrast-grid,
-        .capability-grid,
-        .demo-trackers {
+      .capability-grid {
           grid-template-columns: 1fr;
         }
         .hero-panel,
@@ -1933,6 +1887,7 @@
       return {
         theme: "light",
         animations: "on",
+        layout: "vertical",
         daily_nudge: false,
         nudge_time: "",
       };
@@ -2253,34 +2208,8 @@
                     <span />
                   </div>
                   <div className="demo-canvas">
-                    <div className="demo-banner">
-                      <strong>Track workouts, water, and deep work.</strong>
-                      <span>Declo turns the request into a usable tracking system instead of a blank template.</span>
-                    </div>
-                    <div className="demo-trackers">
-                      <div className="demo-tracker">
-                        <div className="demo-pill">Daily</div>
-                        <strong>Water intake</strong>
-                        <div className="demo-progress"><span style={{ width: "72%" }} /></div>
-                      </div>
-                      <div className="demo-tracker">
-                        <div className="demo-pill">Weekly</div>
-                        <strong>Strength training</strong>
-                        <div className="demo-progress"><span style={{ width: "48%" }} /></div>
-                      </div>
-                      <div className="demo-tracker">
-                        <div className="demo-pill">Timed</div>
-                        <strong>Running</strong>
-                        <div className="demo-progress"><span style={{ width: "61%" }} /></div>
-                      </div>
-                      <div className="demo-tracker">
-                        <div className="demo-pill">Custom</div>
-                        <strong>Deep work</strong>
-                        <div className="demo-progress"><span style={{ width: "84%" }} /></div>
-                      </div>
-                    </div>
-                    <div className="demo-placeholder">
-                      Keep this area ready for a recorded product walkthrough or interactive embed once you have a polished demo asset.
+                    <div style={{ borderRadius: "20px", overflow: "hidden", border: "1px solid rgba(99, 75, 52, 0.12)", display: "flex" }}>
+                      <img src="./declo-demo.png" alt="Declo workspace preview" style={{ width: "100%", height: "auto", display: "block" }} />
                     </div>
                   </div>
                 </div>
@@ -2428,6 +2357,24 @@
                         type="button"
                         className={`choice-pill${preferences.animations === value ? " active" : ""}`}
                         onClick={() => onUpdate({ animations: value })}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="setting-row">
+                  <div className="setting-copy">
+                    <div className="setting-label">Layout</div>
+                    <div className="setting-hint">Tracker list orientation.</div>
+                  </div>
+                  <div className="choice-row">
+                    {["vertical", "horizontal"].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`choice-pill${preferences.layout === "horizontal" && value === "horizontal" || preferences.layout !== "horizontal" && value === "vertical" ? " active" : ""}`}
+                        onClick={() => onUpdate({ layout: value })}
                       >
                         {value}
                       </button>
@@ -3118,6 +3065,7 @@
         const preferences = state.meta?.preferences || getDefaultPreferences();
         document.documentElement.dataset.theme = resolveTheme(preferences.theme);
         document.documentElement.dataset.motion = preferences.animations === "minimal" ? "minimal" : "on";
+        document.documentElement.dataset.layout = preferences.layout === "horizontal" ? "horizontal" : "vertical";
       }, [state.meta]);
 
       useEffect(() => {
