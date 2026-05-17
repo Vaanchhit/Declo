@@ -170,10 +170,19 @@ def coerce_tracker_array(value, current_tracker_count=0):
     if isinstance(trackers, list):
         return [tracker for tracker in trackers if isinstance(tracker, dict)]
 
+    for key in ("result", "data", "items", "output"):
+        nested = value.get(key)
+        if isinstance(nested, list):
+            return [tracker for tracker in nested if isinstance(tracker, dict)]
+
     if current_tracker_count == 0 and looks_like_tracker_object(value):
         return [value]
 
     return None
+
+
+def summarize_gemini_text(text):
+    return " ".join(str(text or "").split())[:220]
 
 
 def parse_trackers_text(text, current_tracker_count=0):
@@ -192,6 +201,8 @@ def parse_trackers_text(text, current_tracker_count=0):
             continue
         try:
             parsed = json.loads(candidate)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
         except json.JSONDecodeError:
             continue
 
@@ -200,7 +211,7 @@ def parse_trackers_text(text, current_tracker_count=0):
             return trackers
 
     raise ApiError(
-        "Gemini model did not return valid JSON array.",
+        f"Gemini model did not return valid JSON array. Received: {summarize_gemini_text(cleaned)}",
         status=502,
         code="AI_INVALID_JSON",
         retryable=True,

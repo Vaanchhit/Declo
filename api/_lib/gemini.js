@@ -165,11 +165,24 @@ function coerceTrackerArray(value, currentTrackerCount = 0) {
     return value.trackers.filter((tracker) => tracker && typeof tracker === "object" && !Array.isArray(tracker));
   }
 
+  for (const key of ["result", "data", "items", "output"]) {
+    if (Array.isArray(value[key])) {
+      return value[key].filter((tracker) => tracker && typeof tracker === "object" && !Array.isArray(tracker));
+    }
+  }
+
   if (currentTrackerCount === 0 && looksLikeTrackerObject(value)) {
     return [value];
   }
 
   return null;
+}
+
+function summarizeGeminiText(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
 }
 
 function parseTrackersFromText(text, currentTrackerCount = 0) {
@@ -184,7 +197,10 @@ function parseTrackersFromText(text, currentTrackerCount = 0) {
   for (const candidate of candidates) {
     if (!candidate) continue;
     try {
-      const parsed = JSON.parse(candidate);
+      let parsed = JSON.parse(candidate);
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
       const trackers = coerceTrackerArray(parsed, currentTrackerCount);
       if (trackers) return trackers;
     } catch {
@@ -192,7 +208,7 @@ function parseTrackersFromText(text, currentTrackerCount = 0) {
     }
   }
 
-  throw buildGeminiError("Gemini did not return valid JSON array");
+  throw buildGeminiError(`Gemini did not return valid JSON array. Received: ${summarizeGeminiText(cleaned)}`);
 }
 
 async function requestGemini(payload, modelName, currentTrackerCount = 0) {
