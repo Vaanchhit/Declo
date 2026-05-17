@@ -868,6 +868,8 @@
         outline: none;
         background: rgba(255, 255, 255, 0.9);
         color: var(--text);
+        caret-color: var(--text);
+        transform: translateZ(0);
         box-shadow: inset 0 0 0 1px transparent;
       }
       .auth-input,
@@ -2928,6 +2930,38 @@
       );
     }
 
+    function PrivacyModal({ onClose }) {
+      return (
+        <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal preferences-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">Privacy Policy</div>
+              <button type="button" className="ghost-btn" onClick={onClose}>Close</button>
+            </div>
+            <div className="section-stack" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              <section className="section-block">
+                <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginBottom: "16px" }}>Last updated: Today</div>
+                <div style={{ display: "grid", gap: "16px" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: "4px" }}>1. Data We Collect</div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>We collect your email address, name, and tracking data (habits, logs, generated system) to provide the Declo service. We securely store this data using Supabase.</div>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: "4px" }}>2. How We Use Your Data</div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>Your data is exclusively used to allow you to log in across devices and maintain your personal tracking workspace. Your tracker prompts are processed by AI services to generate your personal tracking system.</div>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: "4px" }}>3. Data Deletion</div>
+                    <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>You have full control over your data. You can permanently delete all your tracking data and your account at any time using the "Delete account data" option in the account menu inside the app.</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function BootScreen({ title, copy }) {
       return (
         <div className="auth-shell">
@@ -2975,6 +3009,7 @@
       const [exportMenuOpen, setExportMenuOpen] = useState(false);
       const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
       const [preferencesOpen, setPreferencesOpen] = useState(false);
+      const [privacyOpen, setPrivacyOpen] = useState(false);
       const [dayModal, setDayModal] = useState(null);
       const [draggingId, setDraggingId] = useState(null);
       const [drawerOpen, setDrawerOpen] = useState(false);
@@ -2992,6 +3027,7 @@
         if (!except.includes("export")) setExportMenuOpen(false);
         if (!except.includes("delete")) setDeleteMenuOpen(false);
         if (!except.includes("preferences")) setPreferencesOpen(false);
+        if (!except.includes("privacy")) setPrivacyOpen(false);
         if (!except.includes("day")) setDayModal(null);
         if (!except.includes("drawer")) setDrawerOpen(false);
         if (!except.includes("composer")) setComposerOpen(false);
@@ -3701,6 +3737,14 @@
                         <button type="button" className="profile-item" onClick={exportCSV}>as CSV</button>
                       </div>
                     ) : null}
+                  <button
+                    type="button"
+                    className="profile-item"
+                    data-tip="Read our data collection and privacy policy."
+                    onClick={() => { closeFloatingUi(["privacy"]); setPrivacyOpen(true); }}
+                  >
+                    Privacy Policy
+                  </button>
                     <button type="button" className="profile-item" data-tip="Sign out of this device without deleting saved data." onClick={logout}>Logout</button>
                     <div className="profile-divider" />
                     <button
@@ -3841,6 +3885,7 @@
               onClose={() => closeFloatingUi()}
             />
           ) : null}
+          {privacyOpen ? <PrivacyModal onClose={() => closeFloatingUi()} /> : null}
         </div>
       );
     }

@@ -106,7 +106,7 @@ export async function parseTrackersWithGemini(userInput, currentTrackers) {
     throw err;
   }
 
-  const payload = { contents: [{ parts: [{ text: buildParsePrompt(userInput.trim(), Array.isArray(currentTrackers) ? currentTrackers : []) }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: buildResponseSchema() } };
+  const payload = { contents: [{ parts: [{ text: buildParsePrompt(userInput.trim(), Array.isArray(currentTrackers) ? currentTrackers : []) }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: buildResponseSchema(), maxOutputTokens: 700 } };
   const primaryModel = getEnv("GEMINI_PRIMARY_MODEL", "GEMINI_MODEL") || "gemini-2.5-flash";
   const fallbackModel = getEnv("GEMINI_FALLBACK_MODEL") || "gemini-2.0-flash";
   
