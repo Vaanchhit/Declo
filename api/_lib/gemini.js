@@ -2,14 +2,23 @@ import { getEnv, requireEnv } from "./runtime.js";
 
 function buildParsePrompt(userInput, currentTrackers) {
   const currentJson = JSON.stringify(currentTrackers, null, 2);
-  return `You convert habit-tracker instructions into the final tracker list for a productivity app.
+  return `You convert habit-tracker instructions into tracker changes for a productivity app.
 
-Return only a JSON array. Do not include markdown, code fences, or explanations.
+Return only a JSON object. Do not include markdown, code fences, or explanations.
 
-The array must represent the full final tracker list after applying the user's instruction to the current trackers.
-If the user wants to add trackers, include them.
-If the user wants to rename, modify, or remove trackers, update the array accordingly.
+The object must have this shape:
+{
+  "trackers": [...],
+  "removed_ids": [...]
+}
+
+Return only the trackers that are new or changed.
+Do not return unchanged trackers.
+If the user wants to remove a tracker, put its existing id in "removed_ids" and do not include it in "trackers".
+If the user wants to add trackers, include only those new trackers in "trackers".
+If the user wants to rename or modify a tracker, include only that changed tracker in "trackers".
 Preserve existing tracker ids when modifying an existing tracker.
+If the user request does not require any changes, return {"trackers":[],"removed_ids":[]}.
 
 Each tracker object should follow these rules:
 - id: preserve the existing tracker id when updating an existing tracker, otherwise omit it
@@ -40,37 +49,47 @@ ${userInput}`.trim();
 
 function buildResponseSchema() {
   return {
-    type: "ARRAY",
-    items: {
-      type: "OBJECT",
-      properties: {
-        id: { type: "STRING" },
-        name: { type: "STRING" },
-        type: { type: "STRING" },
-        mode: { type: "STRING" },
-        category: { type: "STRING" },
-        logging_mode: { type: "STRING" },
-        unit: { type: "STRING", nullable: true },
-        goal: { type: "NUMBER", nullable: true },
-        frequency: { type: "STRING" },
-        increments: { type: "ARRAY", items: { type: "NUMBER" } },
-        primary_action: { type: "STRING" },
-        optional_actions: { type: "ARRAY", items: { type: "STRING" } },
-        fields: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              name: { type: "STRING" },
-              type: { type: "STRING" },
-              unit: { type: "STRING", nullable: true }
-            },
-            required: ["name", "type"]
-          }
+    type: "OBJECT",
+    properties: {
+      trackers: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            id: { type: "STRING" },
+            name: { type: "STRING" },
+            type: { type: "STRING" },
+            mode: { type: "STRING" },
+            category: { type: "STRING" },
+            logging_mode: { type: "STRING" },
+            unit: { type: "STRING", nullable: true },
+            goal: { type: "NUMBER", nullable: true },
+            frequency: { type: "STRING" },
+            increments: { type: "ARRAY", items: { type: "NUMBER" } },
+            primary_action: { type: "STRING" },
+            optional_actions: { type: "ARRAY", items: { type: "STRING" } },
+            fields: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING" },
+                  type: { type: "STRING" },
+                  unit: { type: "STRING", nullable: true }
+                },
+                required: ["name", "type"]
+              }
+            }
+          },
+          required: ["name", "type", "category", "logging_mode", "frequency", "increments", "primary_action", "optional_actions", "fields"]
         }
       },
-      required: ["name", "type", "category", "logging_mode", "frequency", "increments", "primary_action", "optional_actions", "fields"]
-    }
+      removed_ids: {
+        type: "ARRAY",
+        items: { type: "STRING" }
+      }
+    },
+    required: ["trackers", "removed_ids"]
   };
 }
 
@@ -178,6 +197,35 @@ function coerceTrackerArray(value, currentTrackerCount = 0) {
   return null;
 }
 
+function coerceTrackerDelta(value, currentTrackerCount = 0) {
+  if (Array.isArray(value)) {
+    return {
+      trackers: value.filter((tracker) => tracker && typeof tracker === "object" && !Array.isArray(tracker)),
+      removed_ids: [],
+    };
+  }
+
+  if (!value || typeof value !== "object") return null;
+
+  const trackers = coerceTrackerArray(value.trackers, currentTrackerCount)
+    || coerceTrackerArray(value.result, currentTrackerCount)
+    || coerceTrackerArray(value.data, currentTrackerCount)
+    || coerceTrackerArray(value.items, currentTrackerCount)
+    || coerceTrackerArray(value.output, currentTrackerCount)
+    || (looksLikeTrackerObject(value) ? [value] : null);
+
+  const removedIds = Array.isArray(value.removed_ids)
+    ? value.removed_ids.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+
+  if (!trackers && !removedIds.length) return null;
+
+  return {
+    trackers: trackers || [],
+    removed_ids: removedIds,
+  };
+}
+
 function summarizeGeminiText(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
@@ -185,7 +233,7 @@ function summarizeGeminiText(text) {
     .slice(0, 220);
 }
 
-function parseTrackersFromText(text, currentTrackerCount = 0) {
+function parseTrackerDeltaFromText(text, currentTrackerCount = 0) {
   const cleaned = stripCodeFences(text);
   const candidates = [cleaned];
   const arraySnippet = extractBalancedJsonSnippet(cleaned, "[", "]");
@@ -201,14 +249,14 @@ function parseTrackersFromText(text, currentTrackerCount = 0) {
       if (typeof parsed === "string") {
         parsed = JSON.parse(parsed);
       }
-      const trackers = coerceTrackerArray(parsed, currentTrackerCount);
-      if (trackers) return trackers;
+      const delta = coerceTrackerDelta(parsed, currentTrackerCount);
+      if (delta) return delta;
     } catch {
       // Try the next candidate shape.
     }
   }
 
-  throw buildGeminiError(`Gemini did not return valid JSON array. Received: ${summarizeGeminiText(cleaned)}`);
+  throw buildGeminiError(`Gemini did not return valid tracker delta. Received: ${summarizeGeminiText(cleaned)}`);
 }
 
 async function requestGemini(payload, modelName, currentTrackerCount = 0) {
@@ -223,7 +271,7 @@ async function requestGemini(payload, modelName, currentTrackerCount = 0) {
   }
 
   const text = extractCandidateText(data);
-  return parseTrackersFromText(text, currentTrackerCount);
+  return parseTrackerDeltaFromText(text, currentTrackerCount);
 }
 
 export async function parseTrackersWithGemini(userInput, currentTrackers) {
@@ -239,13 +287,13 @@ export async function parseTrackersWithGemini(userInput, currentTrackers) {
   const fallbackModel = getEnv("GEMINI_FALLBACK_MODEL") || "gemini-2.0-flash";
   
   try {
-    const trackers = await requestGemini(payload, primaryModel, safeTrackers.length);
-    return { trackers, model: primaryModel, fallback_used: false };
+    const delta = await requestGemini(payload, primaryModel, safeTrackers.length);
+    return { ...delta, model: primaryModel, fallback_used: false };
   } catch (err) {
     if (!fallbackModel || primaryModel === fallbackModel || err.status !== 502) {
       throw err;
     }
-    const trackers = await requestGemini(payload, fallbackModel, safeTrackers.length);
-    return { trackers, model: fallbackModel, fallback_used: true };
+    const delta = await requestGemini(payload, fallbackModel, safeTrackers.length);
+    return { ...delta, model: fallbackModel, fallback_used: true };
   }
 }

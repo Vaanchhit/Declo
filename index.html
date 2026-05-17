@@ -1805,13 +1805,33 @@
       };
     }
 
+    function applyTrackerDelta(currentTrackers, deltaTrackers, removedIds) {
+      const removed = new Set((removedIds || []).map((id) => String(id || "").trim()).filter(Boolean));
+      const normalizedDelta = (deltaTrackers || []).map(normalizeTracker);
+      const updatesById = new Map(
+        normalizedDelta
+          .filter((tracker) => tracker.id)
+          .map((tracker) => [tracker.id, tracker])
+      );
+      const newTrackers = normalizedDelta.filter((tracker) => !updatesById.has(tracker.id) || !currentTrackers.some((existing) => existing.id === tracker.id));
+
+      const merged = currentTrackers
+        .filter((tracker) => !removed.has(tracker.id))
+        .map((tracker) => updatesById.get(tracker.id) || tracker);
+
+      return [...merged, ...newTrackers.filter((tracker) => !removed.has(tracker.id))];
+    }
+
     async function parseTrackers(input, trackers, signal) {
       const data = await apiFetch("/api/parse", {
         method: "POST",
         signal,
         body: JSON.stringify({ input, trackers }),
       });
-      return (data.trackers || []).map(normalizeTracker);
+      return {
+        trackers: (data.trackers || []).map(normalizeTracker),
+        removedIds: Array.isArray(data.removed_ids) ? data.removed_ids.map(String) : [],
+      };
     }
 
     async function loadState() {
@@ -3294,11 +3314,13 @@
         try {
           const selectedFrequencyLabel = frequencyPreset === "custom" ? customFrequency.trim() : frequencyPreset;
           const promptInput = `${input.trim()}\nCadence: ${selectedFrequencyLabel}.`;
-          const trackers = (await parseTrackers(promptInput, state.trackers, controller.signal)).map((tracker) => normalizeTracker({
+          const delta = await parseTrackers(promptInput, state.trackers, controller.signal);
+          const deltaTrackers = delta.trackers.map((tracker) => normalizeTracker({
             ...tracker,
             frequency: frequencyPreset,
             frequency_label: frequencyPreset === "custom" ? customFrequency.trim() : "",
           }));
+          const trackers = applyTrackerDelta(state.trackers, deltaTrackers, delta.removedIds);
           const currentData = state.data || {};
           const trackerIds = new Set(trackers.map((tracker) => tracker.id));
           const prunedData = Object.fromEntries(Object.entries(currentData).filter(([trackerId]) => trackerIds.has(trackerId)));

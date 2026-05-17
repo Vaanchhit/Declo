@@ -14,14 +14,23 @@ from .runtime import (
 def build_parse_prompt(user_input, current_trackers):
     current_json = json.dumps(current_trackers, ensure_ascii=True, indent=2)
     return f"""
-You convert habit-tracker instructions into the final tracker list for a productivity app.
+You convert habit-tracker instructions into tracker changes for a productivity app.
 
-Return only a JSON array. Do not include markdown, code fences, or explanations.
+Return only a JSON object. Do not include markdown, code fences, or explanations.
 
-The array must represent the full final tracker list after applying the user's instruction to the current trackers.
-If the user wants to add trackers, include them.
-If the user wants to rename, modify, or remove trackers, update the array accordingly.
+The object must have this shape:
+{{
+  "trackers": [...],
+  "removed_ids": [...]
+}}
+
+Return only the trackers that are new or changed.
+Do not return unchanged trackers.
+If the user wants to remove a tracker, put its existing id in "removed_ids" and do not include it in "trackers".
+If the user wants to add trackers, include only those new trackers in "trackers".
+If the user wants to rename or modify a tracker, include only that changed tracker in "trackers".
 Preserve existing tracker ids when modifying an existing tracker.
+If the user request does not require any changes, return {{"trackers":[],"removed_ids":[]}}.
 
 Each tracker object should follow these rules:
 - id: preserve the existing tracker id when updating an existing tracker, otherwise omit it
@@ -53,53 +62,63 @@ User instruction:
 
 def build_response_schema():
     return {
-        "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "name": {"type": "string"},
-                "type": {"type": "string"},
-                "mode": {"type": "string"},
-                "category": {"type": "string"},
-                "logging_mode": {"type": "string"},
-                "unit": {"type": ["string", "null"]},
-                "goal": {"type": ["number", "null"]},
-                "frequency": {"type": "string"},
-                "increments": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                },
-                "primary_action": {"type": "string"},
-                "optional_actions": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "fields": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string"},
-                            "type": {"type": "string"},
-                            "unit": {"type": ["string", "null"]},
+        "type": "object",
+        "properties": {
+            "trackers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "type": {"type": "string"},
+                        "mode": {"type": "string"},
+                        "category": {"type": "string"},
+                        "logging_mode": {"type": "string"},
+                        "unit": {"type": ["string", "null"]},
+                        "goal": {"type": ["number", "null"]},
+                        "frequency": {"type": "string"},
+                        "increments": {
+                            "type": "array",
+                            "items": {"type": "number"},
                         },
-                        "required": ["name", "type", "unit"],
+                        "primary_action": {"type": "string"},
+                        "optional_actions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "fields": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "type": {"type": "string"},
+                                    "unit": {"type": ["string", "null"]},
+                                },
+                                "required": ["name", "type", "unit"],
+                            },
+                        },
                     },
+                    "required": [
+                        "name",
+                        "type",
+                        "category",
+                        "logging_mode",
+                        "frequency",
+                        "increments",
+                        "primary_action",
+                        "optional_actions",
+                        "fields",
+                    ],
                 },
             },
-            "required": [
-                "name",
-                "type",
-                "category",
-                "logging_mode",
-                "frequency",
-                "increments",
-                "primary_action",
-                "optional_actions",
-                "fields",
-            ],
+            "removed_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
         },
+        "required": ["trackers", "removed_ids"],
     }
 
 
@@ -181,11 +200,45 @@ def coerce_tracker_array(value, current_tracker_count=0):
     return None
 
 
+def coerce_tracker_delta(value, current_tracker_count=0):
+    if isinstance(value, list):
+        return {
+            "trackers": [tracker for tracker in value if isinstance(tracker, dict)],
+            "removed_ids": [],
+        }
+
+    if not isinstance(value, dict):
+        return None
+
+    trackers = (
+        coerce_tracker_array(value.get("trackers"), current_tracker_count=current_tracker_count)
+        or coerce_tracker_array(value.get("result"), current_tracker_count=current_tracker_count)
+        or coerce_tracker_array(value.get("data"), current_tracker_count=current_tracker_count)
+        or coerce_tracker_array(value.get("items"), current_tracker_count=current_tracker_count)
+        or coerce_tracker_array(value.get("output"), current_tracker_count=current_tracker_count)
+        or ([value] if looks_like_tracker_object(value) else None)
+    )
+
+    removed_ids = value.get("removed_ids")
+    if isinstance(removed_ids, list):
+        removed_ids = [str(item).strip() for item in removed_ids if str(item).strip()]
+    else:
+        removed_ids = []
+
+    if trackers is None and not removed_ids:
+        return None
+
+    return {
+        "trackers": trackers or [],
+        "removed_ids": removed_ids,
+    }
+
+
 def summarize_gemini_text(text):
     return " ".join(str(text or "").split())[:220]
 
 
-def parse_trackers_text(text, current_tracker_count=0):
+def parse_tracker_delta_text(text, current_tracker_count=0):
     cleaned = strip_code_fences(text)
     candidates = [cleaned]
     array_snippet = extract_balanced_json_snippet(cleaned, "[", "]")
@@ -206,12 +259,12 @@ def parse_trackers_text(text, current_tracker_count=0):
         except json.JSONDecodeError:
             continue
 
-        trackers = coerce_tracker_array(parsed, current_tracker_count=current_tracker_count)
-        if trackers is not None:
-            return trackers
+        delta = coerce_tracker_delta(parsed, current_tracker_count=current_tracker_count)
+        if delta is not None:
+            return delta
 
     raise ApiError(
-        f"Gemini model did not return valid JSON array. Received: {summarize_gemini_text(cleaned)}",
+        f"Gemini model did not return valid tracker delta. Received: {summarize_gemini_text(cleaned)}",
         status=502,
         code="AI_INVALID_JSON",
         retryable=True,
@@ -300,7 +353,7 @@ def request_gemini(payload, model_name, current_tracker_count=0):
         ) from exc
 
     text = extract_candidate_text(response_payload)
-    return parse_trackers_text(text, current_tracker_count=current_tracker_count)
+    return parse_tracker_delta_text(text, current_tracker_count=current_tracker_count)
 
 
 def parse_trackers_with_gemini(user_input, current_trackers):
@@ -313,9 +366,9 @@ def parse_trackers_with_gemini(user_input, current_trackers):
     fallback_model = get_gemini_fallback_model()
 
     try:
-        trackers = request_gemini(payload, primary_model, current_tracker_count=len(safe_trackers))
+        delta = request_gemini(payload, primary_model, current_tracker_count=len(safe_trackers))
         return {
-            "trackers": trackers,
+            **delta,
             "model": primary_model,
             "fallback_used": False,
         }
@@ -323,9 +376,9 @@ def parse_trackers_with_gemini(user_input, current_trackers):
         if not exc.retryable or not fallback_model or fallback_model == primary_model:
             raise
 
-    trackers = request_gemini(payload, fallback_model, current_tracker_count=len(safe_trackers))
+    delta = request_gemini(payload, fallback_model, current_tracker_count=len(safe_trackers))
     return {
-        "trackers": trackers,
+        **delta,
         "model": fallback_model,
         "fallback_used": True,
     }
