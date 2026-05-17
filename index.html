@@ -2399,7 +2399,16 @@
                   <button
                     type="button"
                     className={`toggle-btn${preferences.daily_nudge ? " on" : ""}`}
-                    onClick={() => alert("This feature is currently underway.")}
+                    onClick={async () => {
+                      if (!preferences.daily_nudge && "Notification" in window) {
+                        const perm = await Notification.requestPermission();
+                        if (perm !== "granted") {
+                          alert("Please allow notifications in your browser to use daily nudges.");
+                          return;
+                        }
+                      }
+                      onUpdate({ daily_nudge: !preferences.daily_nudge });
+                    }}
                   >
                     {preferences.daily_nudge ? "On" : "Off"}
                   </button>
@@ -2413,8 +2422,7 @@
                     className="inline-input"
                     type="time"
                     value={preferences.nudge_time || ""}
-                    onClick={() => alert("This feature is currently underway.")}
-                    onChange={() => {}}
+                    onChange={(e) => onUpdate({ nudge_time: e.target.value })}
                   />
                 </div>
               </section>
@@ -3141,6 +3149,38 @@
           else audioRef.current.pause();
         }
       }, [musicPlaying]);
+
+      useEffect(() => {
+        const preferences = state.meta?.preferences;
+        if (!preferences?.daily_nudge || !preferences?.nudge_time) return undefined;
+
+        const checkTime = () => {
+          const now = new Date();
+          const currentHours = String(now.getHours()).padStart(2, '0');
+          const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+          const currentTime = `${currentHours}:${currentMinutes}`;
+          
+          if (currentTime === preferences.nudge_time) {
+            const lastNudge = localStorage.getItem("declo_last_nudge");
+            const today = now.toISOString().slice(0, 10);
+            
+            if (lastNudge !== today) {
+              if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Declo Reminder", {
+                  body: "Time to log your trackers!",
+                  icon: "./declo-logo.png"
+                });
+                localStorage.setItem("declo_last_nudge", today);
+              }
+            }
+          }
+        };
+
+        checkTime();
+        const interval = setInterval(checkTime, 30000);
+
+        return () => clearInterval(interval);
+      }, [state.meta?.preferences]);
 
       useEffect(() => {
         if (!profileOpen) {

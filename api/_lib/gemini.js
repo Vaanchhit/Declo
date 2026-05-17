@@ -74,7 +74,128 @@ function buildResponseSchema() {
   };
 }
 
-async function requestGemini(payload, modelName) {
+function buildGeminiError(message, status = 502) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+function extractCandidateText(data) {
+  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+  if (!candidates.length) {
+    const blockReason = data?.promptFeedback?.blockReason;
+    if (blockReason) {
+      throw buildGeminiError(`Gemini blocked the prompt: ${blockReason}`, 422);
+    }
+    throw buildGeminiError("Gemini returned no candidates");
+  }
+
+  const parts = Array.isArray(candidates[0]?.content?.parts) ? candidates[0].content.parts : [];
+  const text = parts
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .join("")
+    .trim();
+
+  if (!text) throw buildGeminiError("Gemini returned an empty response");
+  return text;
+}
+
+function stripCodeFences(text) {
+  return String(text || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function extractBalancedJsonSnippet(text, openChar, closeChar) {
+  const start = text.indexOf(openChar);
+  if (start === -1) return "";
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === openChar) depth += 1;
+    if (char === closeChar) {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+
+  return "";
+}
+
+function looksLikeTrackerObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && (
+    typeof value.name === "string" ||
+    typeof value.type === "string" ||
+    Array.isArray(value.fields) ||
+    typeof value.frequency === "string"
+  );
+}
+
+function coerceTrackerArray(value, currentTrackerCount = 0) {
+  if (Array.isArray(value)) {
+    return value.filter((tracker) => tracker && typeof tracker === "object" && !Array.isArray(tracker));
+  }
+
+  if (!value || typeof value !== "object") return null;
+
+  if (Array.isArray(value.trackers)) {
+    return value.trackers.filter((tracker) => tracker && typeof tracker === "object" && !Array.isArray(tracker));
+  }
+
+  if (currentTrackerCount === 0 && looksLikeTrackerObject(value)) {
+    return [value];
+  }
+
+  return null;
+}
+
+function parseTrackersFromText(text, currentTrackerCount = 0) {
+  const cleaned = stripCodeFences(text);
+  const candidates = [cleaned];
+  const arraySnippet = extractBalancedJsonSnippet(cleaned, "[", "]");
+  const objectSnippet = extractBalancedJsonSnippet(cleaned, "{", "}");
+
+  if (arraySnippet && arraySnippet !== cleaned) candidates.push(arraySnippet);
+  if (objectSnippet && objectSnippet !== cleaned && objectSnippet !== arraySnippet) candidates.push(objectSnippet);
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const parsed = JSON.parse(candidate);
+      const trackers = coerceTrackerArray(parsed, currentTrackerCount);
+      if (trackers) return trackers;
+    } catch {
+      // Try the next candidate shape.
+    }
+  }
+
+  throw buildGeminiError("Gemini did not return valid JSON array");
+}
+
+async function requestGemini(payload, modelName, currentTrackerCount = 0) {
   const apiKey = requireEnv("GEMINI_API_KEY", "GOOGLE_API_KEY");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
@@ -82,21 +203,11 @@ async function requestGemini(payload, modelName) {
   const data = await res.json();
   
   if (!res.ok) {
-    const err = new Error(data.error?.message || "Gemini API error");
-    err.status = 502;
-    throw err;
+    throw buildGeminiError(data.error?.message || "Gemini API error");
   }
-  
-  const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join("").trim();
-  if (!text) throw new Error("Gemini returned an empty response");
-  
-  try {
-    const trackers = JSON.parse(text);
-    if (!Array.isArray(trackers)) throw new Error();
-    return trackers.filter(t => typeof t === "object" && t !== null);
-  } catch (e) {
-    throw new Error("Gemini did not return valid JSON array");
-  }
+
+  const text = extractCandidateText(data);
+  return parseTrackersFromText(text, currentTrackerCount);
 }
 
 export async function parseTrackersWithGemini(userInput, currentTrackers) {
@@ -106,18 +217,19 @@ export async function parseTrackersWithGemini(userInput, currentTrackers) {
     throw err;
   }
 
-  const payload = { contents: [{ parts: [{ text: buildParsePrompt(userInput.trim(), Array.isArray(currentTrackers) ? currentTrackers : []) }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: buildResponseSchema(), maxOutputTokens: 700 } };
+  const safeTrackers = Array.isArray(currentTrackers) ? currentTrackers : [];
+  const payload = { contents: [{ parts: [{ text: buildParsePrompt(userInput.trim(), safeTrackers) }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: buildResponseSchema(), maxOutputTokens: 700 } };
   const primaryModel = getEnv("GEMINI_PRIMARY_MODEL", "GEMINI_MODEL") || "gemini-2.5-flash";
   const fallbackModel = getEnv("GEMINI_FALLBACK_MODEL") || "gemini-2.0-flash";
   
   try {
-    const trackers = await requestGemini(payload, primaryModel);
+    const trackers = await requestGemini(payload, primaryModel, safeTrackers.length);
     return { trackers, model: primaryModel, fallback_used: false };
   } catch (err) {
     if (!fallbackModel || primaryModel === fallbackModel || err.status !== 502) {
       throw err;
     }
-    const trackers = await requestGemini(payload, fallbackModel);
+    const trackers = await requestGemini(payload, fallbackModel, safeTrackers.length);
     return { trackers, model: fallbackModel, fallback_used: true };
   }
 }

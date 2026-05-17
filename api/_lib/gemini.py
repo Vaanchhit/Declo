@@ -103,6 +103,110 @@ def build_response_schema():
     }
 
 
+def strip_code_fences(text):
+    cleaned = (text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else ""
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip()
+
+
+def extract_balanced_json_snippet(text, open_char, close_char):
+    start = text.find(open_char)
+    if start == -1:
+        return ""
+
+    depth = 0
+    in_string = False
+    escaped = False
+
+    for index in range(start, len(text)):
+        char = text[index]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+            continue
+
+        if char == open_char:
+            depth += 1
+        elif char == close_char:
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+
+    return ""
+
+
+def looks_like_tracker_object(value):
+    return isinstance(value, dict) and any(
+        isinstance(value.get(key), expected_type)
+        for key, expected_type in (
+            ("name", str),
+            ("type", str),
+            ("fields", list),
+            ("frequency", str),
+        )
+    )
+
+
+def coerce_tracker_array(value, current_tracker_count=0):
+    if isinstance(value, list):
+        return [tracker for tracker in value if isinstance(tracker, dict)]
+
+    if not isinstance(value, dict):
+        return None
+
+    trackers = value.get("trackers")
+    if isinstance(trackers, list):
+        return [tracker for tracker in trackers if isinstance(tracker, dict)]
+
+    if current_tracker_count == 0 and looks_like_tracker_object(value):
+        return [value]
+
+    return None
+
+
+def parse_trackers_text(text, current_tracker_count=0):
+    cleaned = strip_code_fences(text)
+    candidates = [cleaned]
+    array_snippet = extract_balanced_json_snippet(cleaned, "[", "]")
+    object_snippet = extract_balanced_json_snippet(cleaned, "{", "}")
+
+    if array_snippet and array_snippet != cleaned:
+        candidates.append(array_snippet)
+    if object_snippet and object_snippet not in (cleaned, array_snippet):
+        candidates.append(object_snippet)
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+
+        trackers = coerce_tracker_array(parsed, current_tracker_count=current_tracker_count)
+        if trackers is not None:
+            return trackers
+
+    raise ApiError(
+        "Gemini model did not return valid JSON array.",
+        status=502,
+        code="AI_INVALID_JSON",
+        retryable=True,
+    )
+
+
 def extract_candidate_text(response_payload):
     candidates = response_payload.get("candidates") or []
     if not candidates:
@@ -147,7 +251,7 @@ def build_payload(user_input, current_trackers):
     return payload
 
 
-def request_gemini(payload, model_name):
+def request_gemini(payload, model_name, current_tracker_count=0):
     req = urllib_request.Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
         data=json.dumps(payload).encode("utf-8"),
@@ -185,37 +289,20 @@ def request_gemini(payload, model_name):
         ) from exc
 
     text = extract_candidate_text(response_payload)
-    try:
-        trackers = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ApiError(
-            f"Gemini model {model_name} did not return valid JSON.",
-            status=502,
-            code="AI_INVALID_JSON",
-            retryable=True,
-        ) from exc
-
-    if not isinstance(trackers, list):
-        raise ApiError(
-            f"Gemini model {model_name} did not return a JSON array.",
-            status=502,
-            code="AI_INVALID_SHAPE",
-            retryable=True,
-        )
-
-    return [tracker for tracker in trackers if isinstance(tracker, dict)]
+    return parse_trackers_text(text, current_tracker_count=current_tracker_count)
 
 
 def parse_trackers_with_gemini(user_input, current_trackers):
     if not user_input.strip():
         raise ApiError("Missing prompt input.", status=400, code="PROMPT_REQUIRED")
 
-    payload = build_payload(user_input, current_trackers)
+    safe_trackers = current_trackers if isinstance(current_trackers, list) else []
+    payload = build_payload(user_input, safe_trackers)
     primary_model = get_gemini_primary_model()
     fallback_model = get_gemini_fallback_model()
 
     try:
-        trackers = request_gemini(payload, primary_model)
+        trackers = request_gemini(payload, primary_model, current_tracker_count=len(safe_trackers))
         return {
             "trackers": trackers,
             "model": primary_model,
@@ -225,7 +312,7 @@ def parse_trackers_with_gemini(user_input, current_trackers):
         if not exc.retryable or not fallback_model or fallback_model == primary_model:
             raise
 
-    trackers = request_gemini(payload, fallback_model)
+    trackers = request_gemini(payload, fallback_model, current_tracker_count=len(safe_trackers))
     return {
         "trackers": trackers,
         "model": fallback_model,
